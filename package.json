@@ -1,9 +1,8 @@
 {
-  "dependencies": {
-    "conventional-changelog-core": "^9.0.0",
-    "git-semver-tags": "^8.0.0",
-    "yargs": "^17.7.2"
-  },
+  "name": "programmatic-changelog-generator",
+  "version": "1.0.0",
+  "description": "A library to programmatically generate changelogs from git history and conventional commits.",
+  "main": "index.js",
   "scripts": {
     "test": "jest"
   },
