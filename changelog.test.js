@@ -180,13 +180,16 @@ describe('Changelog Generator', () => {
     expect(changelog).toContain('Add new dashboard PROJ-132');
     
     // Check which security fixes are included
-    // Test that both fixes are included (current behavior)
-    expect(changelog).toContain('Fix critical security issue PROJ-131');
-    expect(changelog).toContain('Fixed security issue in another branch PROJ-131');
+    // Test that only one fix with the same JIRA ticket is included
+    expect(changelog).toContain('PROJ-131');
     
-    // Verify both tickets are included
-    const commitLines = changelog.split('\n').filter(line => line.includes('PROJ-131'));
-    expect(commitLines.length).toBe(2); // Current behavior shows both
+    // Verify deduplication by checking for skipped commits in the output
+    expect(changelog).toContain('Skipping duplicate commit for ticket PROJ-131');
+    
+    // Count actual commit entries for PROJ-131 (lines starting with '- ' that contain PROJ-131)
+    const commitEntries = changelog.split('\n')
+      .filter(line => line.trim().startsWith('- ') && line.includes('PROJ-131'));
+    expect(commitEntries.length).toBe(1); // Only one commit entry should be included
   });
   
   // Test for saving to file
@@ -218,8 +221,8 @@ describe('Changelog Generator', () => {
     expect(changelog).not.toContain('v0.2.1-schema');
   });
   
-  // Test tickets repeated in multiple commits (documenting current behavior)
-  test('includes all commits with the same JIRA ticket', () => {
+  // Test tickets repeated in multiple commits (verifying deduplication)
+  test('deduplicates commits with the same JIRA ticket', () => {
     // Create a new branch for isolation
     exec('git checkout -b test-deduplication');
     
@@ -230,11 +233,16 @@ describe('Changelog Generator', () => {
     // Run changelog generator
     const changelog = runChangelogGenerator(['--unreleased']);
     
-    // Count lines containing the ticket
-    const commitLines = changelog.split('\n').filter(line => line.includes('PROJ-200'));
+    // Verify deduplication by checking for skipped commits in the output
+    expect(changelog).toContain('Skipping duplicate commit for ticket PROJ-200');
     
-    // Current behavior: both commits are included
-    expect(commitLines.length).toBe(2);
+    // Count actual commit entries (lines starting with '- ' that contain PROJ-200)
+    const commitEntries = changelog.split('\n')
+      .filter(line => line.trim().startsWith('- ') && line.includes('PROJ-200'));
+    expect(commitEntries.length).toBe(1); // Only one commit entry should be included
+    
+    // Verify that the JIRA ticket is included
+    expect(changelog).toContain('PROJ-200');
     
     // Clean up
     exec('git checkout master 2>/dev/null || git checkout main 2>/dev/null');

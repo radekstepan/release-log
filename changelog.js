@@ -144,11 +144,6 @@ function parseCommits(range) {
       continue;
     }
     
-    // If JIRA ticket is found, mark it as seen
-    if (jiraTicket) {
-      seenJiraTickets.add(jiraTicket);
-    }
-    
     // Parse conventional commit
     const match = subject.match(/^(\w+)(?:\(([^)]+)\))?:\s+(.+)$/);
     
@@ -156,6 +151,12 @@ function parseCommits(range) {
       const [, type, scope, message] = match;
       if (COMMIT_TYPES[type]) {
         const category = COMMIT_TYPES[type];
+        
+        // If JIRA ticket is found, mark it as seen
+        if (jiraTicket) {
+          seenJiraTickets.add(jiraTicket);
+        }
+        
         const entry = {
           hash: hash.substring(0, 7),
           message: jiraTicket ? `${message} (${jiraTicket})` : message,
@@ -169,6 +170,7 @@ function parseCommits(range) {
         categories[category].push(entry);
       }
     }
+    
   }
   
   return categories;
