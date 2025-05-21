@@ -15,6 +15,8 @@ const { generateChangelog } = require('./lib/changelog-generator');
  *   to section titles (e.g., 'Features', 'Bug Fixes') in the changelog. Merged with defaults.
  * @property {string|null} [githubRepoUrl=null] - Base URL of the GitHub repository (e.g., "https://github.com/owner/repo")
  *   to generate links for commit hashes. If null, links are not generated.
+ * @property {(tag: string) => boolean} [tagFilter] - A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.
+ *   Defaults to a function that filters out tags ending with '-schema'.
  */
 
 /**

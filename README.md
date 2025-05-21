@@ -21,7 +21,7 @@ This tool helps automate the process of creating and maintaining `CHANGELOG.md` 
     *   Optionally save the generated changelog to a file.
     *   Prepends new content to the existing changelog file.
 *   **Robust Handling:**
-    *   Ignores "schema" tags (e.g., `v1.0.0-schema`) when determining release versions.
+    *   Flexible tag filtering using a `tagFilter` function (defaults to ignoring tags ending with `-schema`).
     *   Gracefully handles repositories with no tags, no commits, or no conventional commits within a range.
 *   **Flexible Configuration:** Highly configurable to suit various project needs.
 
@@ -55,7 +55,7 @@ async function createChangelog() {
 createChangelog();
 ```
 
-### Advanced Example: Unreleased Changes and Saving to File
+### Advanced Example: Unreleased Changes, Custom Tag Filter, and Saving to File
 
 ```javascript
 const { generateChangelog } = require('release-log');
@@ -74,7 +74,8 @@ async function updateMyChangelog() {
         fix: '🐛 Bug Fixes',
         perf: '⚡ Performance Improvements',
         // other custom types or overrides
-      }
+      },
+      tagFilter: (tag) => /^v\d+\.\d+\.\d+$/.test(tag) // Only consider tags like v1.0.0, v0.2.1, etc.
     });
     console.log('Changelog updated successfully!');
     // console.log(changelogContent); // Contains the newly generated section
@@ -90,16 +91,17 @@ updateMyChangelog();
 
 The `generateChangelog` function accepts an options object with the following properties:
 
-| Option          | Type                       | Default                        | Description                                                                                                                                                              |
-| --------------- | -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `repoPath`      | `string`                   | `process.cwd()`                | Path to the git repository.                                                                                                                                              |
-| `fromTag`       | `string \| null`           | `null`                         | The git tag to start the changelog from (exclusive). If `unreleased` is true, this is the tag to compare HEAD against. If `null` & `unreleased`, uses the latest tag.      |
-| `toTag`         | `string \| null`           | `null`                         | The git tag to end the changelog at (inclusive). Ignored if `unreleased` is true. If `null` & not `unreleased`, uses the latest tag.                                      |
-| `unreleased`    | `boolean`                  | `false`                        | If true, generates changelog for commits since `fromTag` (or latest tag if `fromTag` is `null`) up to HEAD. The title will be "# Unreleased".                         |
-| `save`          | `boolean`                  | `false`                        | If true, saves the generated changelog by prepending it to the specified file.                                                                                           |
-| `changelogFile` | `string`                   | `'CHANGELOG.md'`               | File path to save/update the changelog. Used if `save` is true. Relative to `repoPath` if not absolute.                                                                 |
-| `commitTypes`   | `Record<string, string>`   | See [Default Commit Types](#default-commit-types) | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'Features', 'Bug Fixes'). Merged with defaults, custom values override. |
-| `githubRepoUrl` | `string \| null`           | `null`                         | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes. If `null`, links are not generated.                    |
+| Option          | Type                               | Default                                                      | Description                                                                                                                                                              |
+| --------------- | ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `repoPath`      | `string`                           | `process.cwd()`                                              | Path to the git repository.                                                                                                                                              |
+| `fromTag`       | `string \| null`                   | `null`                                                       | The git tag to start the changelog from (exclusive). If `unreleased` is true, this is the tag to compare HEAD against. If `null` & `unreleased`, uses the latest tag.      |
+| `toTag`         | `string \| null`                   | `null`                                                       | The git tag to end the changelog at (inclusive). Ignored if `unreleased` is true. If `null` & not `unreleased`, uses the latest tag.                                      |
+| `unreleased`    | `boolean`                          | `false`                                                      | If true, generates changelog for commits since `fromTag` (or latest tag if `fromTag` is `null`) up to HEAD. The title will be "# Unreleased".                         |
+| `save`          | `boolean`                          | `false`                                                      | If true, saves the generated changelog by prepending it to the specified file.                                                                                           |
+| `changelogFile` | `string`                           | `'CHANGELOG.md'`                                             | File path to save/update the changelog. Used if `save` is true. Relative to `repoPath` if not absolute.                                                                 |
+| `commitTypes`   | `Record<string, string>`           | See [Default Commit Types](#default-commit-types)            | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'Features', 'Bug Fixes'). Merged with defaults, custom values override. |
+| `githubRepoUrl` | `string \| null`                   | `null`                                                       | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes. If `null`, links are not generated.                    |
+| `tagFilter`     | `(tag: string) => boolean`         | `(tag) => tag && !tag.endsWith('-schema')`                   | A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.                                             |
 
 ## Conventional Commits
 
