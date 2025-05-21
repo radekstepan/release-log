@@ -1,5 +1,5 @@
 {
-  "name": "programmatic-changelog-generator",
+  "name": "release-log",
   "version": "1.0.0",
   "description": "A library to programmatically generate changelogs from git history and conventional commits.",
   "main": "index.js",

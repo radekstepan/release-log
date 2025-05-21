@@ -1,4 +1,4 @@
-# Programmatic Changelog Generator
+# release-log
 
 A library to programmatically generate changelogs from git history and conventional commits.
 This tool helps automate the process of creating and maintaining `CHANGELOG.md` files by parsing commit messages that follow the [Conventional Commits specification](https://www.conventionalcommits.org/).
@@ -27,14 +27,9 @@ This tool helps automate the process of creating and maintaining `CHANGELOG.md` 
 
 ## Installation
 
-Using npm:
-```bash
-npm install programmatic-changelog-generator
-```
-
 Using yarn:
 ```bash
-yarn add programmatic-changelog-generator
+yarn add release-log
 ```
 
 ## Usage
@@ -42,7 +37,7 @@ yarn add programmatic-changelog-generator
 ### Basic Example
 
 ```javascript
-const { generateChangelog } = require('programmatic-changelog-generator');
+const { generateChangelog } = require('release-log');
 
 async function createChangelog() {
   try {
@@ -63,7 +58,7 @@ createChangelog();
 ### Advanced Example: Unreleased Changes and Saving to File
 
 ```javascript
-const { generateChangelog } = require('programmatic-changelog-generator');
+const { generateChangelog } = require('release-log');
 
 async function updateMyChangelog() {
   try {
