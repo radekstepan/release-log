@@ -19,13 +19,14 @@ A library to programmatically generate changelogs from git history and conventio
 *   **JIRA Integration:**
     *   Automatically extracts JIRA ticket IDs (e.g., `PROJ-123`) from commit messages.
     *   Appends JIRA ID to commit messages in the changelog if not already present.
-    *   Deduplicates entries based on JIRA ticket ID, keeping the message from the oldest commit for that ticket.
+    *   Deduplicates entries based on JIRA ticket ID, keeping the message from the oldest *kept* commit for that ticket (respecting `commitFilter`).
 *   **GitHub Integration:** Generates links to commits, tags, and comparisons if a `githubRepoUrl` is provided.
 *   **File Operations:**
     *   Optionally save the generated changelog to a file.
     *   Prepends new content to the existing changelog file.
 *   **Robust Handling:**
     *   Flexible tag filtering using a `tagFilter` function (defaults to ignoring tags ending with `-schema`).
+    *   Flexible commit filtering using a `commitFilter` function (defaults to including all parsed conventional commits).
     *   Gracefully handles repositories with no tags, no commits, or no conventional commits within a range.
 *   **Flexible Configuration:** Highly configurable to suit various project needs.
 *   **TypeScript Support:** Includes type definitions for a better development experience in TypeScript projects.
@@ -63,69 +64,47 @@ async function createChangelog() {
 
 createChangelog();
 ```
-This might output something like:
-```markdown
-## [v1.0.1](https://github.com/your-org/your-repo/compare/v1.0.0...v1.0.1) (2023-10-27)
-
-### Bug Fixes
-
-* **auth:** correct redirect loop on invalid token ([a1b2c3d](https://github.com/your-org/your-repo/commit/a1b2c3d))
-
-### Features
-
-* **api:** add endpoint for user preferences ([d4e5f6g](https://github.com/your-org/your-repo/commit/d4e5f6g))
-```
 
 ### Advanced Example (TypeScript)
 
 ```typescript
-import { generateChangelog, ChangelogConfig } from 'release-log';
+import { generateChangelog, ChangelogConfig, CommitEntry } from 'release-log';
 
 async function updateMyChangelog() {
   try {
     const options: ChangelogConfig = {
       repoPath: process.cwd(),
-      unreleased: true, // Generate for unreleased changes since the latest tag
-      // fromTag: 'v1.2.0', // Optionally specify a base tag for unreleased changes
+      unreleased: true, 
       save: true,
-      changelogFile: 'CHANGELOG.md', // File to save to (relative to repoPath)
+      changelogFile: 'CHANGELOG.md', 
       githubRepoUrl: 'https://github.com/your-org/your-repo',
       commitTypes: {
-        feat: '🚀 New Features & Enhancements', // Custom title for 'feat'
+        feat: '🚀 New Features & Enhancements',
         fix: '🐛 Bug Fixes',
         perf: '⚡ Performance Improvements',
-        // other custom types or overrides
       },
-      tagFilter: (tag: string) => /^v\d+\.\d+\.\d+$/.test(tag) // Only consider tags like v1.0.0, v0.2.1, etc.
+      tagFilter: (tag: string) => /^v\d+\.\d+\.\d+$/.test(tag), // Only final release tags
+      commitFilter: (commit: CommitEntry) => {
+        // Example: Exclude commits with "[WIP]" in their subject message
+        if (commit.subject.includes('[WIP]')) {
+          return false;
+        }
+        // Example: Exclude 'chore' type commits unless they are breaking
+        if (commit.type === 'chore' && !commit.isExclamationBreaking && commit.breakingNotes.length === 0) {
+          return false;
+        }
+        return true;
+      }
     };
 
     const changelogContent = await generateChangelog(options);
     console.log('Changelog updated successfully!');
-    // console.log(changelogContent); // Contains the newly generated section
   } catch (error) {
     console.error('Failed to update changelog:', error);
   }
 }
 
 updateMyChangelog();
-```
-This will generate a section like:
-```markdown
-## [Unreleased](https://github.com/your-org/your-repo/compare/v1.2.3...HEAD) (2023-10-27)
-
-### BREAKING CHANGES
-
-* **core:** The `process` method now requires a configuration object. ([abcdef0](https://github.com/your-org/your-repo/commit/abcdef0))
-  * Old method signature `process(data)` is removed.
-  * See migration guide for details.
-
-### 🚀 New Features & Enhancements
-
-* **ui:** implement dark mode toggle ([1234567](https://github.com/your-org/your-repo/commit/1234567))
-
-### 🐛 Bug Fixes
-
-* **validation:** allow empty strings for optional fields ([fedcba9](https://github.com/your-org/your-repo/commit/fedcba9))
 ```
 
 ## Configuration Options (API)
@@ -143,6 +122,21 @@ The `generateChangelog` function accepts an options object (`ChangelogConfig`) w
 | `commitTypes`   | `Record<string, string>`           | See [Default Commit Types](#default-commit-types)            | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'New Features', 'Bug Fixes'). Merged with defaults, custom values override. Custom-titled sections are sorted alphabetically after standard sections. |
 | `githubRepoUrl` | `string \| null`                   | `null`                                                       | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes, tags, and comparisons. If `null`, links are not generated.                    |
 | `tagFilter`     | `(tag: string) => boolean`         | `(tag) => tag && !tag.endsWith('-schema')`                   | A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.                                             |
+| `commitFilter`  | `(commit: CommitEntry) => boolean` | `(_commit) => true`                                          | A function that receives a parsed `CommitEntry` object and returns `true` if the commit should be included in the changelog, `false` otherwise. Executed after parsing but before JIRA deduplication and categorization. |
+
+The `CommitEntry` object passed to `commitFilter` has the following structure:
+```typescript
+interface CommitEntry {
+  hash: string;                 // Short commit hash (7 chars)
+  subject: string;              // Original commit subject line (after type/scope/breaking marker)
+  message: string;              // Subject line, potentially with JIRA ID appended if not originally present
+  scope?: string;               // Parsed scope, if any
+  jiraTicket: string | null;    // Extracted JIRA ticket ID (e.g., "PROJ-123")
+  type: string;                 // Conventional commit type (e.g., "feat", "fix")
+  isExclamationBreaking: boolean; // True if "!" was used for breaking change
+  breakingNotes: string[];      // Array of breaking change notes from footers
+}
+```
 
 ## Conventional Commits
 

@@ -4,7 +4,7 @@ import { ResolvedChangelogConfig } from './config';
 export interface CommitEntry {
   hash: string;
   subject: string;
-  message: string;
+  message: string; // Potentially modified subject (e.g. with JIRA ID)
   scope?: string;
   jiraTicket: string | null;
   type: string;
@@ -12,7 +12,7 @@ export interface CommitEntry {
   breakingNotes: string[];
 }
 
-export type ParsedCommits = Record<string, CommitEntry[]>; // CategoryTitle -> Commits
+export type ParsedCommits = Record<string, CommitEntry[]>;
 
 export function extractJiraTicket(message: string): string | null {
   const jiraMatch = message.match(/([A-Z][A-Z0-9]*-\d+)/i);
@@ -44,7 +44,7 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
           throw error;
         }
     } else {
-        throw error; // re-throw if not an Error instance
+        throw error;
     }
   }
 
@@ -67,11 +67,6 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
     const fullMessage = subjectLine + (body ? '\n' + body : '');
 
     const jiraTicket = extractJiraTicket(fullMessage);
-
-    if (jiraTicket && seenJiraTickets.has(jiraTicket)) {
-      continue;
-    }
-
     const subjectMatch = subjectLine.match(/^(\w+)(?:\(([^)]+)\))?(!?):\s+(.*)$/);
 
     if (subjectMatch) {
@@ -80,38 +75,32 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
       if (effectiveCommitTypes[type]) {
         const categoryTitle = effectiveCommitTypes[type];
 
-        if (jiraTicket) {
-          seenJiraTickets.add(jiraTicket);
-        }
-
         const entry: CommitEntry = {
           hash: hash.substring(0, 7),
           subject: messageText, 
           message: (jiraTicket && !messageText.toUpperCase().includes(`(${jiraTicket})`) && !messageText.toUpperCase().includes(jiraTicket))
                      ? `${messageText} (${jiraTicket})`
                      : messageText,
-          scope: scope || undefined, // Ensure scope is undefined if not present
+          scope: scope || undefined,
           jiraTicket,
           type,
           isExclamationBreaking: breakingMarker === '!',
           breakingNotes: [] 
         };
 
+        // Populate breakingNotes (same logic as before)
         const breakingChangeKeywords = ["BREAKING CHANGE:", "BREAKING-CHANGE:"];
         let currentBody = body;
-        
         // eslint-disable-next-line no-constant-condition
         while(true) {
             let bestKeywordIndexInBody = -1;
             let matchedKeywordLength = 0;
             let keywordFound: string | null = null;
-
             for (const keyword of breakingChangeKeywords) {
                 const keywordIndex = currentBody.toLowerCase().indexOf(keyword.toLowerCase());
                 if (keywordIndex !== -1) {
                     const lineStartBeforeKeyword = currentBody.lastIndexOf('\n', keywordIndex -1);
                     const textBeforeKeywordOnLine = currentBody.substring(lineStartBeforeKeyword === -1 ? 0 : lineStartBeforeKeyword + 1, keywordIndex);
-
                     if (textBeforeKeywordOnLine.trim() === '') {
                         if (bestKeywordIndexInBody === -1 || keywordIndex < bestKeywordIndexInBody) {
                             bestKeywordIndexInBody = keywordIndex;
@@ -121,20 +110,32 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
                     }
                 }
             }
-
             if (keywordFound) {
                 let noteText = currentBody.substring(bestKeywordIndexInBody + matchedKeywordLength).trim();
-                
-                if (noteText) {
-                    entry.breakingNotes.push(noteText);
-                }
-                
+                if (noteText) entry.breakingNotes.push(noteText);
                 currentBody = currentBody.substring(bestKeywordIndexInBody + matchedKeywordLength + noteText.length);
             } else {
                 break; 
             }
         }
 
+        // <<<< FIX: Apply commitFilter BEFORE JIRA deduplication logic >>>>
+        if (!config.commitFilter(entry)) {
+          continue; // Skip this commit if the filter returns false
+        }
+
+        // JIRA Deduplication for *kept* commits
+        if (entry.jiraTicket && seenJiraTickets.has(entry.jiraTicket)) {
+          // This JIRA ticket has already been included from a previous (kept) commit
+          continue; 
+        }
+        // <<<< END FIX >>>>
+        
+        if (entry.jiraTicket) {
+          // Only add to seenJiraTickets if the commit was *kept* AND has a JIRA ticket
+          seenJiraTickets.add(entry.jiraTicket);
+        }
+        
         if (!categories[categoryTitle]) {
           categories[categoryTitle] = [];
         }
