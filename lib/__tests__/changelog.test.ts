@@ -1,23 +1,22 @@
-// lib/__tests__/changelog.test.js
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
-const { generateChangelog } = require('../../index'); 
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
+import { generateChangelog, ChangelogConfig } from '../../index'; 
 
 describe('changelog', () => {
-  let tmpDir;
+  let tmpDir: string;
   const GITHUB_REPO_URL = 'https://github.com/test-org/test-repo';
   const DATE_REGEX = `\\(\\d{4}-\\d{2}-\\d{2}\\)`; // Matches (YYYY-MM-DD)
   const COMMIT_LINK_REGEX = `\\(\\[([a-f0-9]{7})\\]\\(${GITHUB_REPO_URL}/commit/\\1\\)\\)`; // Matches ([abcdefg](github_url/commit/abcdefg))
 
-  const execInTmpDir = (command, silent = false) => {
+  const execInTmpDir = (command: string, silent = false): string => {
     try {
-      const output = execSync(command, { encoding: 'utf8', cwd: tmpDir, stdio: 'pipe' });
+      const options: ExecSyncOptionsWithStringEncoding = { encoding: 'utf8', cwd: tmpDir, stdio: 'pipe' };
+      const output = execSync(command, options);
       return output ? output.trim() : '';
-    } catch (error) {
-      // Suppress console.error for expected git errors in tests
-      // if (!silent && !error.message.toLowerCase().includes('no commits yet')) {
+    } catch (error: any) {
+      // if (!silent && !(error instanceof Error && error.message.toLowerCase().includes('no commits yet'))) {
       //   const stderrMessage = error.stderr ? error.stderr.toString().trim() : 'N/A';
       //   console.error(`Error executing command in tmpDir: ${command}\nStderr: ${stderrMessage}\nStdout: ${error.stdout ? error.stdout.toString().trim() : 'N/A'}`);
       // }
@@ -25,7 +24,7 @@ describe('changelog', () => {
     }
   };
 
-  const createCommit = (message, content, fileName = 'README.md') => {
+  const createCommit = (message: string, content?: string, fileName: string = 'README.md') => {
     const filePath = path.join(tmpDir, fileName);
     const dirPath = path.dirname(filePath);
 
@@ -46,9 +45,7 @@ describe('changelog', () => {
         fileToAdd = fileName;
     }
     execInTmpDir(`git add "${fileToAdd}"`);
-    // Use -m for subject and -m for body if message contains \n\n
     const parts = message.split('\n\n');
-    // Escape double quotes within the commit message parts for shell safety
     const subject = parts[0].replace(/"/g, '\\"');
     let commitCmd = `git commit --no-verify --allow-empty -m "${subject}"`;
     if (parts.length > 1) {
@@ -69,44 +66,41 @@ describe('changelog', () => {
     execInTmpDir('git config user.name "Test User"');
     execInTmpDir('git config user.email "test@example.com"');
     
-    createCommit('chore: Initial commit', '# Test Repository'); //0
-    createCommit('feat: Add user authentication', 'Auth feature', 'auth.js'); //1
-    createCommit('feat(api): Add user endpoints PROJ-123', 'User API', 'api.js'); //2
-    createCommit('feat(ui): Implement login form PROJ-124', 'Login UI', 'login.js'); //3
+    createCommit('chore: Initial commit', '# Test Repository'); 
+    createCommit('feat: Add user authentication', 'Auth feature', 'auth.js'); 
+    createCommit('feat(api): Add user endpoints PROJ-123', 'User API', 'api.js'); 
+    createCommit('feat(ui): Implement login form PROJ-124', 'Login UI', 'login.js'); 
     execInTmpDir('git tag v0.1.0');
 
-    createCommit('fix: Fix login redirect PROJ-125', 'Login fix', 'auth.js'); //4
-    createCommit('fix(api): Fix authentication token validation PROJ-126', 'Token fix', 'api.js'); //5
-    createCommit('docs: Update README with setup instructions', 'README update', 'README.md'); //6
+    createCommit('fix: Fix login redirect PROJ-125', 'Login fix', 'auth.js'); 
+    createCommit('fix(api): Fix authentication token validation PROJ-126', 'Token fix', 'api.js'); 
+    createCommit('docs: Update README with setup instructions', 'README update', 'README.md'); 
     execInTmpDir('git tag v0.2.0');
 
-    createCommit('feat: Add password reset feature PROJ-127', 'Password reset', 'reset.js'); //7
-    createCommit('feat(email): Add email templates PROJ-128', 'Email templates', 'emails/'); //8
-    execInTmpDir('git tag v0.2.1-schema'); // Will be ignored by default tagFilter
-    createCommit('fix: Fix URL parsing PROJ-129', 'URL parsing fix', 'router.js'); //9
-    createCommit('perf: Optimize database queries PROJ-130', 'DB optimization', 'db.js'); //10
+    createCommit('feat: Add password reset feature PROJ-127', 'Password reset', 'reset.js'); 
+    createCommit('feat(email): Add email templates PROJ-128', 'Email templates', 'emails/'); 
+    execInTmpDir('git tag v0.2.1-schema'); 
+    createCommit('fix: Fix URL parsing PROJ-129', 'URL parsing fix', 'router.js'); 
+    createCommit('perf: Optimize database queries PROJ-130', 'DB optimization', 'db.js'); 
     execInTmpDir('git tag v0.3.0');
 
-    // Commits for breaking changes and section order testing (for v0.3.1)
-    createCommit('feat(api)!: Introduce new API version, old one deprecated BC-BANG-001', 'api_v2.js'); // 11
-    createCommit('fix(ui): Adjust layout due to API changes BC-NOTE-001\n\nBREAKING CHANGE: The user profile layout has changed significantly. Users need to update their settings.\nAnother line for the note.', 'ui_bc_note.js'); // 12
-    createCommit('perf(db): Optimize another user query PERF-002', 'db_perf2.js'); // 13
-    createCommit('revert: Revert "feat: Add password reset feature PROJ-127" RVT-001\n\nThis reverts commit abc123xyz.', 'revert_reset.js'); // 14
-    createCommit('feat(module)!: Complete rewrite of module X BC-BOTH-001\n\nBREAKING CHANGE: Module X API is entirely new.\n\nSee migration guide at https://example.com/migrate', 'module_x_rewrite.js'); //15
+    createCommit('feat(api)!: Introduce new API version, old one deprecated BC-BANG-001', 'api_v2.js'); 
+    createCommit('fix(ui): Adjust layout due to API changes BC-NOTE-001\n\nBREAKING CHANGE: The user profile layout has changed significantly. Users need to update their settings.\nAnother line for the note.', 'ui_bc_note.js'); 
+    createCommit('perf(db): Optimize another user query PERF-002', 'db_perf2.js'); 
+    createCommit('revert: Revert "feat: Add password reset feature PROJ-127" RVT-001\n\nThis reverts commit abc123xyz.', 'revert_reset.js'); 
+    createCommit('feat(module)!: Complete rewrite of module X BC-BOTH-001\n\nBREAKING CHANGE: Module X API is entirely new.\n\nSee migration guide at https://example.com/migrate', 'module_x_rewrite.js');
     execInTmpDir('git tag v0.3.1'); 
 
-    // JIRA ID PROJ-131: First commit (oldest in log order for range) should be kept
-    createCommit('fix: Fix critical security issue PROJ-131', 'security.js'); //16
-    createCommit('fix: Address security vulnerability PROJ-131 (follow-up)', 'Applied security fix, should be ignored by dedupe', 'other.js'); //17
-    createCommit('feat: Add new dashboard PROJ-132', 'New dashboard', 'dashboard.js'); //18
+    createCommit('fix: Fix critical security issue PROJ-131', 'security.js'); 
+    createCommit('fix: Address security vulnerability PROJ-131 (follow-up)', 'Applied security fix, should be ignored by dedupe', 'other.js'); 
+    createCommit('feat: Add new dashboard PROJ-132', 'New dashboard', 'dashboard.js'); 
     
-    // Tags for custom tagFilter test
     execInTmpDir('git tag v0.4.0-beta');
-    createCommit('feat: Beta feature (for custom filter test) CF-001', 'beta_cf.js'); //19
+    createCommit('feat: Beta feature (for custom filter test) CF-001', 'beta_cf.js'); 
     execInTmpDir('git tag v0.4.0-rc');
-    createCommit('fix: RC fix (for custom filter test) CF-002', 'rc_fix_cf.js'); //20
+    createCommit('fix: RC fix (for custom filter test) CF-002', 'rc_fix_cf.js'); 
     execInTmpDir('git tag v0.4.0-release'); 
-    createCommit('feat: Another feature (for custom filter test) CF-003', 'another_cf.js'); //21
+    createCommit('feat: Another feature (for custom filter test) CF-003', 'another_cf.js'); 
     execInTmpDir('git tag v0.5.0-experimental'); 
   });
 
@@ -135,8 +129,8 @@ describe('changelog', () => {
       expect(changelog).toContain('### Performance Improvements\n\n');
       expect(changelog).toMatch(new RegExp(`\\* Optimize database queries PROJ-130 ${COMMIT_LINK_REGEX}`));
       
-      expect(changelog).not.toContain('Fix login redirect PROJ-125'); // Not in range
-      expect(changelog).not.toContain('BC-BANG-001'); // Not in range
+      expect(changelog).not.toContain('Fix login redirect PROJ-125'); 
+      expect(changelog).not.toContain('BC-BANG-001'); 
     });
 
     test('generates changelog with BREAKING CHANGES, section order, and formatting for v0.3.0..v0.3.1', async () => {
@@ -149,7 +143,6 @@ describe('changelog', () => {
       
       expect(changelog).toMatch(new RegExp(`^## \\[v0\\.3\\.1\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) ${DATE_REGEX}`));
 
-      // BREAKING CHANGES section
       expect(changelog).toContain('### BREAKING CHANGES\n\n');
       expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Introduce new API version, old one deprecated BC-BANG-001 ${COMMIT_LINK_REGEX}`));
       expect(changelog).toMatch(new RegExp(`\\* \\*\\*ui:\\*\\* Adjust layout due to API changes BC-NOTE-001 ${COMMIT_LINK_REGEX}\n` +
@@ -159,7 +152,6 @@ describe('changelog', () => {
                                          `  \\* Module X API is entirely new\\.\n` +
                                          `  \\* See migration guide at https://example.com/migrate`, 'm'));
 
-      // Section Order and Content
       const featuresIndex = changelog.indexOf('### Features');
       const bugFixesIndex = changelog.indexOf('### Bug Fixes');
       const perfIndex = changelog.indexOf('### Performance Improvements');
@@ -172,7 +164,6 @@ describe('changelog', () => {
       expect(perfIndex).toBeGreaterThan(bugFixesIndex);
       expect(revertsIndex).toBeGreaterThan(perfIndex);
 
-      // Content of regular sections
       expect(changelog).toContain('### Features\n\n');
       expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Introduce new API version, old one deprecated BC-BANG-001 ${COMMIT_LINK_REGEX}`));
       expect(changelog).toMatch(new RegExp(`\\* \\*\\*module:\\*\\* Complete rewrite of module X BC-BOTH-001 ${COMMIT_LINK_REGEX}`));
@@ -210,10 +201,9 @@ describe('changelog', () => {
       const changelog = await generateChangelog({
         repoPath: tmpDir,
         unreleased: true,
-        githubRepoUrl: GITHUB_REPO_URL, // Default tag filter implies v0.5.0-experimental is latest
+        githubRepoUrl: GITHUB_REPO_URL, 
       });
 
-      // Latest tag by default filter is v0.5.0-experimental
       expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.5\\.0-experimental\\.\\.\\.HEAD\\) ${DATE_REGEX}`));
       expect(changelog).toContain('### Features\n\n');
       expect(changelog).toMatch(new RegExp(`\\* Truly unreleased feature UNRL-001 for angular test ${COMMIT_LINK_REGEX}`));
@@ -234,7 +224,6 @@ describe('changelog', () => {
       githubRepoUrl: GITHUB_REPO_URL,
     });
     expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.1\\.\\.\\.HEAD\\) ${DATE_REGEX}`));
-    // Commits after v0.3.1 are 16,17,18 (PROJ-131, PROJ-132), 19 (CF-001), 20 (CF-002), 21 (CF-003) + SPECIFIC-UNRL-002
     
     expect(changelog).toContain('### Features\n\n');
     expect(changelog).toMatch(new RegExp(`\\* Add new dashboard PROJ-132 ${COMMIT_LINK_REGEX}`));
@@ -243,14 +232,14 @@ describe('changelog', () => {
     expect(changelog).toMatch(new RegExp(`\\* Another unreleased from v0.3.1 SPECIFIC-UNRL-002 ${COMMIT_LINK_REGEX}`));
     
     expect(changelog).toContain('### Bug Fixes\n\n');
-    expect(changelog).toMatch(new RegExp(`\\* Fix critical security issue PROJ-131 ${COMMIT_LINK_REGEX}`)); // Deduplicated
+    expect(changelog).toMatch(new RegExp(`\\* Fix critical security issue PROJ-131 ${COMMIT_LINK_REGEX}`)); 
     expect(changelog).not.toContain('Address security vulnerability PROJ-131 (follow-up)');
     expect(changelog).toMatch(new RegExp(`\\* RC fix \\(for custom filter test\\) CF-002 ${COMMIT_LINK_REGEX}`));
 
     expect(changelog).not.toContain('Fix login redirect PROJ-125'); 
-    expect(changelog).not.toContain('BC-BANG-001'); // Belongs to v0.3.1, not unreleased from it
+    expect(changelog).not.toContain('BC-BANG-001'); 
     
-    execInTmpDir(`git reset --hard ${currentHeadBeforeUnreleasedTest}`, true); // Clean up commit
+    execInTmpDir(`git reset --hard ${currentHeadBeforeUnreleasedTest}`, true); 
   });
 
   test('saves changelog to file and prepends correctly', async () => {
@@ -286,7 +275,6 @@ describe('changelog', () => {
     fileContent = fs.readFileSync(changelogFilePath, 'utf8');
     expect(fileContent).toMatch(new RegExp(`^## \\[v0\\.3\\.0\\]\\(${GITHUB_REPO_URL}/compare/v0\\.2\\.0\\.\\.\\.v0\\.3\\.0\\) ${DATE_REGEX}`));
     expect(fileContent).toContain('Add password reset feature PROJ-127');
-    // Previous unreleased section should follow
     expect(fileContent).toMatch(new RegExp(`## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.5\\.0-experimental\\.\\.\\.HEAD\\) ${DATE_REGEX}`));
     expect(fileContent).toContain('unreleased for save test SAVE-001');
     expect(fileContent.indexOf('## [v0.3.0]')).toBeLessThan(fileContent.indexOf('## [Unreleased]'));
@@ -295,13 +283,10 @@ describe('changelog', () => {
   });
 
   test('ignores schema tags for versioning (implicitly uses default tagFilter)', async () => {
-    // Default filter: latest tag is v0.5.0-experimental. Prev is v0.4.0-release.
-    // So this should be changelog for v0.5.0-experimental
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
     });
-    // Commits between v0.4.0-release and v0.5.0-experimental: "Another feature (for custom filter test) CF-003" (commit 21)
     expect(changelog).toMatch(new RegExp(`^## \\[v0\\.5\\.0-experimental\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.v0\\.5\\.0-experimental\\) ${DATE_REGEX}`));
     expect(changelog).toContain('### Features');
     expect(changelog).toMatch(new RegExp(`\\* Another feature \\(for custom filter test\\) CF-003 ${COMMIT_LINK_REGEX}`));
@@ -311,10 +296,8 @@ describe('changelog', () => {
   });
 
   test('uses custom tagFilter function to select specific tags', async () => {
-    const customTagFilter = (tag) => tag.endsWith('-release') || tag === 'v0.3.1' || tag === 'v0.3.0' || tag === 'v0.2.0';
+    const customTagFilter = (tag: string): boolean => tag.endsWith('-release') || tag === 'v0.3.1' || tag === 'v0.3.0' || tag === 'v0.2.0';
 
-    // With this filter, valid tags (desc version sort): v0.4.0-release, v0.3.1, v0.3.0, v0.2.0
-    // Latest tag is v0.4.0-release. Previous tag is v0.3.1.
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tagFilter: customTagFilter,
@@ -322,11 +305,6 @@ describe('changelog', () => {
     });
 
     expect(changelog).toMatch(new RegExp(`^## \\[v0\\.4\\.0-release\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-release\\) ${DATE_REGEX}`));
-    // Commits between v0.3.1 and v0.4.0-release:
-    // 16: fix: Fix critical security issue PROJ-131
-    // 18: feat: Add new dashboard PROJ-132
-    // 19: feat: Beta feature (for custom filter test) CF-001 (after v0.4.0-beta, but v0.4.0-beta is filtered out, so this is included)
-    // 20: fix: RC fix (for custom filter test) CF-002 (after v0.4.0-rc, also filtered out)
     expect(changelog).toContain('### Features');
     expect(changelog).toMatch(new RegExp(`\\* Add new dashboard PROJ-132 ${COMMIT_LINK_REGEX}`));
     expect(changelog).toMatch(new RegExp(`\\* Beta feature \\(for custom filter test\\) CF-001 ${COMMIT_LINK_REGEX}`));
@@ -347,8 +325,6 @@ describe('changelog', () => {
         tagFilter: customTagFilter,
         githubRepoUrl: GITHUB_REPO_URL,
     });
-    // Latest tag by custom filter is v0.4.0-release.
-    // Commits after v0.4.0-release: CF-003 (commit 21), CUST-UNRL-001
     expect(unreleasedChangelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.HEAD\\) ${DATE_REGEX}`));
     expect(unreleasedChangelog).toContain('### Features');
     expect(unreleasedChangelog).toMatch(new RegExp(`\\* Another feature \\(for custom filter test\\) CF-003 ${COMMIT_LINK_REGEX}`));
@@ -360,16 +336,15 @@ describe('changelog', () => {
   test('generates changelog for all commits if no tags exist', async () => {
     const noTagsTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'changelog-notags-'));
     try {
-      execSync('git init', { cwd: noTagsTmpDir, stdio: 'pipe' });
-      execSync('git config commit.gpgsign false', { cwd: noTagsTmpDir });
-      try { execSync('git checkout -b main', { cwd: noTagsTmpDir, stdio: 'pipe' }); } catch (e) {/* ignore */}
-      execSync('git config user.name "Test User"', { cwd: noTagsTmpDir, stdio: 'pipe' });
-      execSync('git config user.email "test@example.com"', { cwd: noTagsTmpDir, stdio: 'pipe' });
+      execSync('git init', { cwd: noTagsTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
+      execSync('git config commit.gpgsign false', { cwd: noTagsTmpDir } as ExecSyncOptionsWithStringEncoding);
+      try { execSync('git checkout -b main', { cwd: noTagsTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding); } catch (e) {/* ignore */}
+      execSync('git config user.name "Test User"', { cwd: noTagsTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
+      execSync('git config user.email "test@example.com"', { cwd: noTagsTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
 
-      const localCreateCommit = (msg, dir) => {
+      const localCreateCommit = (msg: string, dir: string) => {
         fs.writeFileSync(path.join(dir, 'file.txt'), `${msg}\n`, { flag: 'a' });
-        execSync('git add file.txt', { cwd: dir, stdio: 'pipe' });
-        // Escape double quotes within the commit message parts for shell safety
+        execSync('git add file.txt', { cwd: dir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
         const parts = msg.split('\n\n');
         const subject = parts[0].replace(/"/g, '\\"');
         let commitCmd = `git commit --no-verify -m "${subject}"`;
@@ -377,7 +352,7 @@ describe('changelog', () => {
             const body = parts.slice(1).join('\n\n').replace(/"/g, '\\"');
             commitCmd += ` -m "${body}"`;
         }
-        execSync(commitCmd, { cwd: dir, stdio: 'pipe' });
+        execSync(commitCmd, { cwd: dir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
       };
       localCreateCommit('feat: First feature in no-tag repo AA-100', noTagsTmpDir);
       localCreateCommit('fix: A bug BB-200', noTagsTmpDir);
@@ -386,14 +361,12 @@ describe('changelog', () => {
         repoPath: noTagsTmpDir,
         githubRepoUrl: GITHUB_REPO_URL,
       });
-      // For no tags, the header is ## Changelog (YYYY-MM-DD)
       expect(changelog).toMatch(new RegExp(`^## Changelog ${DATE_REGEX}`));
       expect(changelog).toContain('### Features');
       expect(changelog).toMatch(new RegExp(`\\* First feature in no-tag repo AA-100 ${COMMIT_LINK_REGEX}`));
       expect(changelog).toContain('### Bug Fixes');
       expect(changelog).toMatch(new RegExp(`\\* A bug BB-200 ${COMMIT_LINK_REGEX}`));
     } finally {
-      // fs.rmSync(noTagsTmpDir, { recursive: true, force: true });
       console.log(`No-tags test repository available at: ${noTagsTmpDir}`);
     }
   });
@@ -401,11 +374,11 @@ describe('changelog', () => {
   test('handles empty repository (no commits)', async () => {
     const emptyTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'changelog-empty-'));
     try {
-      execSync('git init', { cwd: emptyTmpDir, stdio: 'pipe' });
-      execSync('git config commit.gpgsign false', { cwd: emptyTmpDir });
-      try { execSync('git checkout -b main', { cwd: emptyTmpDir, stdio: 'pipe' }); } catch (e) {/* ignore */}
-      execSync('git config user.name "Test User"', { cwd: emptyTmpDir, stdio: 'pipe' }); 
-      execSync('git config user.email "test@example.com"', { cwd: emptyTmpDir, stdio: 'pipe' });
+      execSync('git init', { cwd: emptyTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
+      execSync('git config commit.gpgsign false', { cwd: emptyTmpDir } as ExecSyncOptionsWithStringEncoding);
+      try { execSync('git checkout -b main', { cwd: emptyTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding); } catch (e) {/* ignore */}
+      execSync('git config user.name "Test User"', { cwd: emptyTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding); 
+      execSync('git config user.email "test@example.com"', { cwd: emptyTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
 
       const changelog = await generateChangelog({
         repoPath: emptyTmpDir,
@@ -415,7 +388,6 @@ describe('changelog', () => {
       const significantLines = changelog.split('\n').filter(line => line.trim().length > 0 && !line.startsWith('## Changelog'));
       expect(significantLines.length).toBe(0); 
     } finally {
-      // fs.rmSync(emptyTmpDir, { recursive: true, force: true });
       console.log(`Empty test repository available at: ${emptyTmpDir}`);
     }
   });
@@ -423,16 +395,15 @@ describe('changelog', () => {
   test('handles repository with commits but no conventional commits in range', async () => {
     const nonConvTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'changelog-nonconv-'));
     try {
-      execSync('git init', { cwd: nonConvTmpDir, stdio: 'pipe' });
-      execSync('git config commit.gpgsign false', { cwd: nonConvTmpDir });
-      try { execSync('git checkout -b main', { cwd: nonConvTmpDir, stdio: 'pipe' }); } catch (e) {/* ignore */}
-      execSync('git config user.name "Test User"', { cwd: nonConvTmpDir, stdio: 'pipe' });
-      execSync('git config user.email "test@example.com"', { cwd: nonConvTmpDir, stdio: 'pipe' });
+      execSync('git init', { cwd: nonConvTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
+      execSync('git config commit.gpgsign false', { cwd: nonConvTmpDir } as ExecSyncOptionsWithStringEncoding);
+      try { execSync('git checkout -b main', { cwd: nonConvTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding); } catch (e) {/* ignore */}
+      execSync('git config user.name "Test User"', { cwd: nonConvTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
+      execSync('git config user.email "test@example.com"', { cwd: nonConvTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
 
-      const localCreateCommit = (msg, dir) => {
+      const localCreateCommit = (msg: string, dir: string) => {
         fs.writeFileSync(path.join(dir, 'file.txt'), `${msg}\n`, { flag: 'a' });
-        execSync('git add file.txt', { cwd: dir, stdio: 'pipe' });
-        // Escape double quotes within the commit message parts for shell safety
+        execSync('git add file.txt', { cwd: dir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
         const parts = msg.split('\n\n');
         const subject = parts[0].replace(/"/g, '\\"');
         let commitCmd = `git commit --no-verify -m "${subject}"`;
@@ -440,15 +411,15 @@ describe('changelog', () => {
             const body = parts.slice(1).join('\n\n').replace(/"/g, '\\"');
             commitCmd += ` -m "${body}"`;
         }
-        execSync(commitCmd, { cwd: dir, stdio: 'pipe' });
+        execSync(commitCmd, { cwd: dir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
       };
       localCreateCommit('Just a regular commit', nonConvTmpDir);
       localCreateCommit('Another regular commit', nonConvTmpDir);
-      execSync('git tag v1.0.0', { cwd: nonConvTmpDir, stdio: 'pipe' });
+      execSync('git tag v1.0.0', { cwd: nonConvTmpDir, stdio: 'pipe' } as ExecSyncOptionsWithStringEncoding);
 
       const changelog = await generateChangelog({
         repoPath: nonConvTmpDir,
-        toTag: 'v1.0.0', // This will be the first tag, so compare link will be to tree
+        toTag: 'v1.0.0',
         githubRepoUrl: GITHUB_REPO_URL,
       });
       expect(changelog).toMatch(new RegExp(`^## \\[v1\\.0\\.0\\]\\(${GITHUB_REPO_URL}/tree/v1\\.0\\.0\\) ${DATE_REGEX}`));
@@ -457,21 +428,19 @@ describe('changelog', () => {
       const significantLines = changelog.split('\n').filter(line => line.trim().length > 0 && !line.match(/^## \[[^\]]+\]/));
       expect(significantLines.length).toBe(0);
     } finally {
-      // fs.rmSync(nonConvTmpDir, { recursive: true, force: true });
       console.log(`Non-conventional commit test repository available at: ${nonConvTmpDir}`);
     }
   });
 
   test('uses custom commit types, merging with defaults, and respects Angular preset formatting', async () => {
     const currentHead = execInTmpDir('git rev-parse HEAD');
-    // Base off v0.5.0-experimental for unreleased
-    const customConfig = {
+    const customConfig: ChangelogConfig = {
       repoPath: tmpDir, 
       fromTag: 'v0.5.0-experimental',
       unreleased: true, 
       commitTypes: {
         feat: 'Awesome New Features', 
-        improvement: 'Enhancements', // Custom type
+        improvement: 'Enhancements', 
       },
       githubRepoUrl: GITHUB_REPO_URL,
     };
@@ -497,9 +466,6 @@ describe('changelog', () => {
     expect(changelog).toContain('### Chores\n\n'); 
     expect(changelog).toMatch(new RegExp(`\\* A chore for custom types test CSTM-CHR-01 ${COMMIT_LINK_REGEX}`));
 
-    // Check section order:
-    // Standard sections (Bug Fixes, Chores) should come first, ordered by ANGULAR_PRESET_CATEGORY_TITLES_ORDER.
-    // Custom-titled sections (Awesome New Features, Enhancements) should come after standard ones, sorted alphabetically.
     const fixesIdx = changelog.indexOf('### Bug Fixes');
     const choresIdx = changelog.indexOf('### Chores');
     const awesomeIdx = changelog.indexOf('### Awesome New Features');
@@ -510,15 +476,10 @@ describe('changelog', () => {
     expect(awesomeIdx).toBeGreaterThan(-1);
     expect(enhanceIdx).toBeGreaterThan(-1);
 
-    // Standard sections order based on ANGULAR_PRESET_CATEGORY_TITLES_ORDER: 'Bug Fixes' (1) before 'Chores' (10)
     expect(fixesIdx).toBeLessThan(choresIdx);
-
-    // Custom titled sections should appear after all standard sections
-    expect(awesomeIdx).toBeGreaterThan(choresIdx); // 'Awesome New Features' after 'Chores'
-    expect(enhanceIdx).toBeGreaterThan(choresIdx); // 'Enhancements' after 'Chores'
-    
-    // Custom titled sections should be sorted alphabetically
-    expect(awesomeIdx).toBeLessThan(enhanceIdx); // 'Awesome New Features' before 'Enhancements'
+    expect(awesomeIdx).toBeGreaterThan(choresIdx); 
+    expect(enhanceIdx).toBeGreaterThan(choresIdx); 
+    expect(awesomeIdx).toBeLessThan(enhanceIdx); 
 
     execInTmpDir(`git reset --hard ${currentHead}`, true);
   });

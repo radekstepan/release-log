@@ -1,7 +1,8 @@
-const { DEFAULT_COMMIT_TYPES } = require('./config');
+import { ResolvedChangelogConfig } from './config';
+import { ParsedCommits, CommitEntry } from './commit_parser';
 
 // Order for sections based on conventional-changelog-angular preset
-const ANGULAR_PRESET_CATEGORY_TITLES_ORDER = [
+const ANGULAR_PRESET_CATEGORY_TITLES_ORDER: string[] = [
   'Features',
   'Bug Fixes',
   'Performance Improvements',
@@ -15,18 +16,21 @@ const ANGULAR_PRESET_CATEGORY_TITLES_ORDER = [
   'Chores',
 ];
 
-function formatChangelog(categories, currentTagForDisplay, previousTagForCompare, config) {
+export function formatChangelog(
+  categories: ParsedCommits, 
+  currentTagForDisplay: string | null | undefined, 
+  previousTagForCompare: string | null | undefined, 
+  config: ResolvedChangelogConfig
+): string {
   const date = new Date().toISOString().split('T')[0];
   let changelog = '';
   const baseUrl = config.githubRepoUrl ? (config.githubRepoUrl.endsWith('/') ? config.githubRepoUrl : config.githubRepoUrl + '/') : null;
 
-  let headerDisplayPart;
+  let headerDisplayPart: string;
   if (config.unreleased) {
     headerDisplayPart = 'Unreleased';
     if (baseUrl && previousTagForCompare) {
       headerDisplayPart = `[Unreleased](${baseUrl}compare/${previousTagForCompare}...HEAD)`;
-    } else if (baseUrl && !previousTagForCompare) {
-      headerDisplayPart = 'Unreleased';
     }
   } else if (currentTagForDisplay) {
     headerDisplayPart = currentTagForDisplay; 
@@ -43,7 +47,7 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
 
   changelog += `## ${headerDisplayPart} (${date})\n\n`;
 
-  const allCommits = Object.values(categories).flat();
+  const allCommits: CommitEntry[] = Object.values(categories).flat();
   const breakingCommits = allCommits.filter(c => c.isExclamationBreaking || c.breakingNotes.length > 0);
 
   if (breakingCommits.length > 0) {
@@ -56,10 +60,10 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
       if (entry.breakingNotes.length > 0) {
         entry.breakingNotes.forEach(noteBlock => { 
           const noteLines = noteBlock.trim().split('\n')
-                               .map(line => line.trim()) // Trim each line individually
-                               .filter(line => line.length > 0); // Filter out empty lines
+                               .map(line => line.trim()) 
+                               .filter(line => line.length > 0); 
           noteLines.forEach(line => {
-            changelog += `  * ${line}\n`; // No need to trim line again here
+            changelog += `  * ${line}\n`; 
           });
         });
       }
@@ -67,19 +71,19 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
     changelog += '\n'; 
   }
 
-  const categoryOrderMap = ANGULAR_PRESET_CATEGORY_TITLES_ORDER.reduce((acc, title, index) => {
+  const categoryOrderMap: Record<string, number> = ANGULAR_PRESET_CATEGORY_TITLES_ORDER.reduce((acc, title, index) => {
     acc[title] = index;
     return acc;
-  }, {});
+  }, {} as Record<string, number>);
 
   Object.keys(categories)
     .sort((aTitle, bTitle) => {
       const indexA = categoryOrderMap[aTitle];
       const indexB = categoryOrderMap[bTitle];
       if (indexA !== undefined && indexB !== undefined) return indexA - indexB;
-      if (indexA !== undefined) return -1;
-      if (indexB !== undefined) return 1;
-      return aTitle.localeCompare(bTitle);
+      if (indexA !== undefined) return -1; // Standard sections first
+      if (indexB !== undefined) return 1;  // Standard sections first
+      return aTitle.localeCompare(bTitle); // Custom sections alphabetically
     })
     .forEach(categoryTitle => {
       if (categories[categoryTitle].length > 0) {
@@ -95,7 +99,3 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
 
   return changelog;
 }
-
-module.exports = {
-  formatChangelog,
-};

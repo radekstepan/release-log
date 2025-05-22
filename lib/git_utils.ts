@@ -1,9 +1,11 @@
-const { execSync } = require('child_process');
+import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
+import { ResolvedChangelogConfig } from './config';
 
-function git(command, cwd) {
+export function git(command: string, cwd: string): string {
   try {
-    return execSync(command, { encoding: 'utf8', cwd }).trim();
-  } catch (error) {
+    const options: ExecSyncOptionsWithStringEncoding = { encoding: 'utf8', cwd };
+    return execSync(command, options).trim();
+  } catch (error: any) {
     const errorMessage = `Git command failed in ${cwd}: ${command}\n` +
                          `Exit status: ${error.status || 'N/A'}\n` +
                          `Stdout: ${(error.stdout || '').toString().trim() || 'N/A'}\n` +
@@ -12,31 +14,31 @@ function git(command, cwd) {
   }
 }
 
-function getTags(config) {
+export function getTags(config: ResolvedChangelogConfig): string[] {
   try {
     const rawTags = git('git tag --list --sort=-version:refname', config.repoPath);
     if (!rawTags) return [];
-    // Use the tagFilter function from the config
     return rawTags.split('\n').filter(tag => config.tagFilter(tag));
-  } catch (error) {
-    if (error.message.includes("not a git repository") ||
+  } catch (error: any) {
+    if (error instanceof Error && (
+        error.message.includes("not a git repository") ||
         error.message.includes("does not have any commits yet") ||
         error.message.includes("ambiguous argument 'HEAD'") ||
         error.message.includes("No names found, nothing to show") ||
         error.message.includes("no tag found")
-       ) {
+       )) {
       return [];
     }
     throw error;
   }
 }
 
-function getLatestTag(config) {
+export function getLatestTag(config: ResolvedChangelogConfig): string | null {
   const tags = getTags(config);
   return tags.length > 0 ? tags[0] : null;
 }
 
-function getPreviousTag(currentTag, config) {
+export function getPreviousTag(currentTag: string, config: ResolvedChangelogConfig): string | null {
   const tags = getTags(config);
   const currentIndex = tags.indexOf(currentTag);
   if (currentIndex !== -1 && currentIndex < tags.length - 1) {
@@ -45,8 +47,7 @@ function getPreviousTag(currentTag, config) {
   return null;
 }
 
-function getCommitRange(config) {
-  // console.log(`[getCommitRange] Initial config: from=${config.fromTag}, to=${config.toTag}, unreleased=${config.unreleased}`);
+export function getCommitRange(config: ResolvedChangelogConfig): string {
   if (config.unreleased) {
     const baseTagForUnreleased = config.fromTag || getLatestTag(config);
     return baseTagForUnreleased ? `${baseTagForUnreleased}..HEAD` : 'HEAD';
@@ -70,8 +71,6 @@ function getCommitRange(config) {
     }
   }
 
-  // console.log(`[getCommitRange] After auto-detection: effectiveFromTag=${effectiveFromTag}, effectiveToTag=${effectiveToTag}`);
-
   if (effectiveToTag) {
     if (effectiveFromTag) {
       return `${effectiveFromTag}..${effectiveToTag}`;
@@ -82,11 +81,3 @@ function getCommitRange(config) {
     return 'HEAD';
   }
 }
-
-module.exports = {
-  git,
-  getTags,
-  getLatestTag,
-  getPreviousTag,
-  getCommitRange,
-};

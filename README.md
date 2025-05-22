@@ -1,6 +1,6 @@
 # release-log
 
-A library to programmatically generate changelogs from git history and conventional commits, following the [conventional-changelog-angular](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular) preset style. This tool helps automate the process of creating and maintaining `CHANGELOG.md` files.
+A library to programmatically generate changelogs from git history and conventional commits, following the [conventional-changelog-angular](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular) preset style. This tool helps automate the process of creating and maintaining `CHANGELOG.md` files. Now written in TypeScript with type definitions included!
 
 ## Features
 
@@ -28,6 +28,7 @@ A library to programmatically generate changelogs from git history and conventio
     *   Flexible tag filtering using a `tagFilter` function (defaults to ignoring tags ending with `-schema`).
     *   Gracefully handles repositories with no tags, no commits, or no conventional commits within a range.
 *   **Flexible Configuration:** Highly configurable to suit various project needs.
+*   **TypeScript Support:** Includes type definitions for a better development experience in TypeScript projects.
 
 ## Installation
 
@@ -42,10 +43,10 @@ npm install release-log
 
 ## Usage
 
-### Basic Example
+### Basic Example (JavaScript)
 
 ```javascript
-const { generateChangelog } = require('release-log');
+const { generateChangelog } = require('release-log'); // Or import if using ESModules
 
 async function createChangelog() {
   try {
@@ -75,14 +76,14 @@ This might output something like:
 * **api:** add endpoint for user preferences ([d4e5f6g](https://github.com/your-org/your-repo/commit/d4e5f6g))
 ```
 
-### Advanced Example: Unreleased Changes, Custom Tag Filter, and Saving to File
+### Advanced Example (TypeScript)
 
-```javascript
-const { generateChangelog } = require('release-log');
+```typescript
+import { generateChangelog, ChangelogConfig } from 'release-log';
 
 async function updateMyChangelog() {
   try {
-    const changelogContent = await generateChangelog({
+    const options: ChangelogConfig = {
       repoPath: process.cwd(),
       unreleased: true, // Generate for unreleased changes since the latest tag
       // fromTag: 'v1.2.0', // Optionally specify a base tag for unreleased changes
@@ -95,8 +96,10 @@ async function updateMyChangelog() {
         perf: '⚡ Performance Improvements',
         // other custom types or overrides
       },
-      tagFilter: (tag) => /^v\d+\.\d+\.\d+$/.test(tag) // Only consider tags like v1.0.0, v0.2.1, etc.
-    });
+      tagFilter: (tag: string) => /^v\d+\.\d+\.\d+$/.test(tag) // Only consider tags like v1.0.0, v0.2.1, etc.
+    };
+
+    const changelogContent = await generateChangelog(options);
     console.log('Changelog updated successfully!');
     // console.log(changelogContent); // Contains the newly generated section
   } catch (error) {
@@ -127,7 +130,7 @@ This will generate a section like:
 
 ## Configuration Options (API)
 
-The `generateChangelog` function accepts an options object with the following properties:
+The `generateChangelog` function accepts an options object (`ChangelogConfig`) with the following properties:
 
 | Option          | Type                               | Default                                                      | Description                                                                                                                                                              |
 | --------------- | ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -192,11 +195,18 @@ To work on this project:
     # or
     npm install
     ```
-3.  Run tests:
+3.  Build the TypeScript source:
+    ```bash
+    yarn build
+    # or
+    npm run build
+    ```
+4.  Run tests:
     ```bash
     yarn test
     # or
     npm test
     ```
+    Tests will be run on the TypeScript files directly using `ts-jest`.
 
-The tests in `lib/__tests__/changelog.test.js` provide comprehensive examples of the library's capabilities and are a good place to understand its behavior.
+The tests in `lib/__tests__/changelog.test.ts` provide comprehensive examples of the library's capabilities and are a good place to understand its behavior.
