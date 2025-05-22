@@ -1,5 +1,26 @@
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
-import { ResolvedChangelogConfig, TagRange } from './config';
+import { ResolvedChangelogConfig, TagRange, PreviousMajorVersionTagsOptions, resolveConfig as resolveOptionsUtil, defaultTagFilter } from './config';
+
+interface SemVer {
+  major: number;
+  minor: number;
+  patch: number;
+  preRelease?: string;
+  original: string;
+}
+
+function parseSemVer(tag: string): SemVer | null {
+  const semverRegex = /^(?:v)?(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/;
+  const match = tag.match(semverRegex);
+  if (!match) return null;
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+    preRelease: match[4] || undefined,
+    original: tag,
+  };
+}
 
 export function git(command: string, cwd: string): string {
   try {
@@ -14,7 +35,7 @@ export function git(command: string, cwd: string): string {
   }
 }
 
-export function getTags(config: ResolvedChangelogConfig): string[] {
+export function getTags(config: Pick<ResolvedChangelogConfig, 'repoPath' | 'tagFilter'>): string[] {
   try {
     const rawTags = git('git tag --list --sort=-version:refname', config.repoPath);
     if (!rawTags) return [];
@@ -33,12 +54,12 @@ export function getTags(config: ResolvedChangelogConfig): string[] {
   }
 }
 
-export function getLatestTag(config: ResolvedChangelogConfig): string | null {
+export function getLatestTag(config: Pick<ResolvedChangelogConfig, 'repoPath' | 'tagFilter'>): string | null {
   const tags = getTags(config);
   return tags.length > 0 ? tags[0] : null;
 }
 
-export function getPreviousTag(currentTag: string, config: ResolvedChangelogConfig): string | null {
+export function getPreviousTag(currentTag: string, config: Pick<ResolvedChangelogConfig, 'repoPath' | 'tagFilter'>): string | null {
   const tags = getTags(config);
   const currentIndex = tags.indexOf(currentTag);
   if (currentIndex !== -1 && currentIndex < tags.length - 1) {
@@ -48,9 +69,9 @@ export function getPreviousTag(currentTag: string, config: ResolvedChangelogConf
 }
 
 export interface CommitRangeDetails {
-  range: string;                 // For git log command
-  displayFromTag: string | null; // For compare link (LHS) or null if from beginning/first tag
-  displayToTag: string | null;   // For compare link (RHS), version header, or null if unreleased/all commits
+  range: string;
+  displayFromTag: string | null;
+  displayToTag: string | null;
 }
 
 export function getCommitRangeDetails(
@@ -65,21 +86,18 @@ export function getCommitRangeDetails(
     reqFrom = config.tag.from;
     reqTo = config.tag.to;
   }
-  // If config.tag is undefined or null, reqFrom and reqTo remain undefined.
 
   if (config.unreleased) {
     const base = reqFrom || getLatestTag(config);
     return {
       range: base ? `${base}..HEAD` : 'HEAD',
       displayFromTag: base,
-      displayToTag: null, // Signifies "Unreleased"
+      displayToTag: null,
     };
   }
 
-  // Not unreleased
   if (reqFrom && reqTo) {
-    if (reqFrom === reqTo) { // e.g., tag: { from: 'v1', to: 'v1' }
-      // Interpret as "commits for this single tag"
+    if (reqFrom === reqTo) {
       const prev = getPreviousTag(reqTo, config);
       return {
         range: prev ? `${prev}..${reqTo}` : reqTo,
@@ -90,8 +108,7 @@ export function getCommitRangeDetails(
     return { range: `${reqFrom}..${reqTo}`, displayFromTag: reqFrom, displayToTag: reqTo };
   }
 
-  if (reqTo) { // Only 'to' was requested (e.g., tag: 'v1.0.0' or tag: {to: 'v1.0.0'})
-              // This means commits for the release 'reqTo'.
+  if (reqTo) {
     const prev = getPreviousTag(reqTo, config);
     return {
       range: prev ? `${prev}..${reqTo}` : reqTo,
@@ -100,17 +117,14 @@ export function getCommitRangeDetails(
     };
   }
 
-  if (reqFrom) { // Only 'from' was requested (e.g., tag: {from: 'v1.0.0'})
-                // This means commits from 'reqFrom' up to the latest tag.
+  if (reqFrom) {
     const latest = getLatestTag(config);
     if (!latest || !getTags(config).includes(reqFrom)) {
-      // reqFrom is invalid or no tags exist. Fallback to "for reqFrom" if it's the only one.
-      const prev = getPreviousTag(reqFrom, config); // Assumes reqFrom is a valid tag if we reach here
+      const prev = getPreviousTag(reqFrom, config);
       return { range: prev ? `${prev}..${reqFrom}` : reqFrom, displayFromTag: prev, displayToTag: reqFrom };
     }
 
-    if (latest === reqFrom) { // reqFrom IS the latest tag.
-                              // This is effectively asking for the release of 'latest'.
+    if (latest === reqFrom) {
       const prev = getPreviousTag(latest, config);
       return {
         range: prev ? `${prev}..${latest}` : latest,
@@ -118,7 +132,6 @@ export function getCommitRangeDetails(
         displayToTag: latest,
       };
     }
-    // reqFrom is older than latest. Range is reqFrom..latest
     return {
       range: `${reqFrom}..${latest}`,
       displayFromTag: reqFrom,
@@ -126,7 +139,6 @@ export function getCommitRangeDetails(
     };
   }
 
-  // Neither 'from' nor 'to' explicitly requested (tag: undefined or null). Means "latest release".
   const latest = getLatestTag(config);
   if (latest) {
     const prev = getPreviousTag(latest, config);
@@ -137,10 +149,110 @@ export function getCommitRangeDetails(
     };
   }
 
-  // No tags in repo, no specific request. All commits.
   return {
     range: 'HEAD',
     displayFromTag: null,
-    displayToTag: null, // Will result in generic "Changelog" title
+    displayToTag: null,
   };
+}
+
+/**
+ * Retrieves a list of tags representing previous major releases.
+ * @param options - Configuration options.
+ * @returns A promise that resolves with an array of tag strings.
+ */
+export async function getPreviousMajorVersionTags(
+  options: PreviousMajorVersionTagsOptions
+): Promise<string[]> {
+  if (options.count <= 0) {
+    return [];
+  }
+
+  const configForGetters: Pick<ResolvedChangelogConfig, 'repoPath' | 'tagFilter'> = {
+    repoPath: options.repoPath ?? process.cwd(),
+    tagFilter: options.tagFilter ?? defaultTagFilter,
+  };
+
+  const filteredSortedTags = getTags(configForGetters); // Newest to oldest
+  if (filteredSortedTags.length === 0) {
+    return [];
+  }
+
+  // Determine the semantic anchor tag
+  let semanticAnchorTag: SemVer | null = null;
+  
+  if (options.startingTag) {
+    // Check if startingTag exists in filtered tags
+    if (!filteredSortedTags.includes(options.startingTag)) {
+      return [];
+    }
+    
+    // Try to parse the starting tag as semver
+    const startingSemVer = parseSemVer(options.startingTag);
+    if (startingSemVer) {
+      semanticAnchorTag = startingSemVer;
+    } else {
+      // Starting tag is not semver, find the first semver tag that appears at or after it in the list
+      const startingIndex = filteredSortedTags.indexOf(options.startingTag);
+      for (let i = startingIndex; i < filteredSortedTags.length; i++) {
+        const parsed = parseSemVer(filteredSortedTags[i]);
+        if (parsed) {
+          semanticAnchorTag = parsed;
+          break;
+        }
+      }
+    }
+  } else {
+    // No starting tag specified, find the first (latest) semver tag
+    for (const tag of filteredSortedTags) {
+      const parsed = parseSemVer(tag);
+      if (parsed) {
+        semanticAnchorTag = parsed;
+        break;
+      }
+    }
+  }
+  
+  if (!semanticAnchorTag) {
+    return [];
+  }
+  
+  const anchorMajor = semanticAnchorTag.major;
+
+  // Collect latest tag for each major version
+  const collectedMajorTags = new Map<number, SemVer>();
+
+  for (const tagName of filteredSortedTags) {
+    const parsed = parseSemVer(tagName);
+    if (parsed) {
+      const existingForMajor = collectedMajorTags.get(parsed.major);
+      if (!existingForMajor) {
+        collectedMajorTags.set(parsed.major, parsed);
+      } else {
+        // Prefer non-prerelease over prerelease for the same major
+        if (!parsed.preRelease && existingForMajor.preRelease) {
+          collectedMajorTags.set(parsed.major, parsed);
+        }
+      }
+    }
+  }
+
+  // Sort by major version descending
+  const sortedMajorsWithTagsList: SemVer[] = Array.from(collectedMajorTags.values())
+    .sort((a, b) => b.major - a.major);
+
+  // Find the index of the anchor major
+  const anchorMajorEntryIndex = sortedMajorsWithTagsList.findIndex(entry => entry.major === anchorMajor);
+
+  if (anchorMajorEntryIndex === -1) {
+    return [];
+  }
+
+  // Get the previous major versions
+  const targetMajorEntries = sortedMajorsWithTagsList.slice(
+    anchorMajorEntryIndex + 1,
+    anchorMajorEntryIndex + 1 + options.count
+  );
+
+  return targetMajorEntries.map(entry => entry.original);
 }

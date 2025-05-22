@@ -1,7 +1,8 @@
 import { generateChangelog as internalGenerateChangelog } from './lib/changelog-generator';
 // Import ChangelogUserConfig directly for re-export
-import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange } from './lib/config';
+import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange, PreviousMajorVersionTagsOptions } from './lib/config';
 import { CommitEntry } from './lib/commit_parser';
+import { getPreviousMajorVersionTags as internalGetPreviousMajorTags } from './lib/git_utils';
 
 export interface ChangelogConfig extends Config {}
 
@@ -17,6 +18,25 @@ export async function generateChangelog(options: ChangelogConfig = {}): Promise<
   return internalGenerateChangelog(options);
 }
 
+/**
+ * Retrieves a list of tags representing previous major releases from a git repository.
+ *
+ * @async
+ * @param {PreviousMajorVersionTagsOptions} options - Configuration options.
+ * @returns {Promise<string[]>} A promise that resolves with an array of tag strings, sorted from newest to oldest among the selected previous major versions.
+ * @throws {Error} Throws an error if git commands fail or other issues occur.
+ */
+export async function getPreviousMajorVersionTags(options: PreviousMajorVersionTagsOptions): Promise<string[]> {
+  return internalGetPreviousMajorTags(options);
+}
+
+
 // Re-export types for direct usage if preferred by consumers
-// Now ChangelogUserConfig is directly imported and can be re-exported by its original name.
-export { type ChangelogUserConfig, type CommitFilter, type TagFilter, type CommitEntry, type TagRange };
+export { 
+  type ChangelogUserConfig, 
+  type CommitFilter, 
+  type TagFilter, 
+  type CommitEntry, 
+  type TagRange,
+  type PreviousMajorVersionTagsOptions
+};

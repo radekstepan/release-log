@@ -2,6 +2,8 @@
 
 A library to programmatically generate changelogs from git history and conventional commits, following the [conventional-changelog-angular](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular) preset style. This tool helps automate the process of creating and maintaining `CHANGELOG.md` files. Now written in TypeScript with type definitions included!
 
+It also provides utility functions for working with git tags.
+
 ## Features
 
 *   **Angular Preset Formatting:**
@@ -21,10 +23,11 @@ A library to programmatically generate changelogs from git history and conventio
     *   Automatically extracts JIRA ticket IDs (e.g., `PROJ-123`) from commit messages.
     *   Appends JIRA ID to commit messages in the changelog if not already present.
     *   Deduplicates entries based on JIRA ticket ID, keeping the message from the oldest *kept* commit for that ticket (respecting `commitFilter`).
-*   **GitHub Integration:** Generates links to commits, tags, and comparisons if a `githubRepoUrl` is provided.
+*   **GitHub Integration:** Generates links to commits, tags, and comparisons if a `githubRepoUrl` is provided for changelog generation.
 *   **File Operations:**
     *   Optionally save the generated changelog to a file.
     *   Prepends new content to the existing changelog file.
+*   **Tag Utilities:** Includes functions like `getPreviousMajorVersionTags` to retrieve lists of tags based on semantic versioning.
 *   **Robust Handling:**
     *   Flexible tag filtering using a `tagFilter` function (defaults to ignoring tags ending with `-schema`).
     *   Flexible commit filtering using a `commitFilter` function (defaults to including all parsed conventional commits).
@@ -45,7 +48,7 @@ npm install release-log
 
 ## Usage
 
-### Basic Example (JavaScript)
+### Basic Changelog Example (JavaScript)
 
 ```javascript
 const { generateChangelog } = require('release-log'); // Or import if using ESModules
@@ -84,7 +87,7 @@ async function createChangelog() {
 createChangelog();
 ```
 
-### Advanced Example (TypeScript)
+### Advanced Changelog Example (TypeScript)
 
 ```typescript
 import { generateChangelog, ChangelogConfig, CommitEntry } from 'release-log';
@@ -129,7 +132,48 @@ async function updateMyChangelog() {
 updateMyChangelog();
 ```
 
-## Configuration Options (API)
+## Tag Utilities
+
+### `getPreviousMajorVersionTags`
+
+This utility function helps you find tags corresponding to previous major releases.
+
+```typescript
+import { getPreviousMajorVersionTags, PreviousMajorVersionTagsOptions } from 'release-log';
+
+async function findPreviousReleases() {
+  try {
+    const options: PreviousMajorVersionTagsOptions = {
+      repoPath: process.cwd(), // Optional, defaults to current working directory
+      count: 3,                // Number of previous major versions to find
+      // startingTag: 'v5.2.0', // Optional, tag to start searching backwards from. Defaults to latest semver tag.
+      // tagFilter: (tag: string) => !tag.includes('-beta'), // Optional, filters tags before processing
+    };
+
+    const majorTags = await getPreviousMajorVersionTags(options);
+    // Example: if current latest is v5.x.y, and you ask for count: 3,
+    // majorTags might be ['v4.8.0', 'v3.10.2', 'v2.5.1'] (latest tags from major 4, 3, and 2)
+    // It will return fewer if not enough major versions exist.
+    console.log('Previous major release tags:', majorTags);
+  } catch (error) {
+    console.error('Failed to get previous major tags:', error);
+  }
+}
+
+findPreviousReleases();
+```
+
+#### `PreviousMajorVersionTagsOptions`
+
+| Option        | Type                       | Default                                      | Description                                                                                                                                    |
+| ------------- | -------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repoPath`    | `string`                   | `process.cwd()`                              | Path to the git repository.                                                                                                                    |
+| `count`       | `number`                   | **Required**                                 | The number of previous major versions to find.                                                                                                 |
+| `startingTag` | `string`                   | Latest semantic version tag                  | An optional tag string to start searching backwards from. If the `startingTag` itself is not a semantic version, the search anchors from the nearest older or equivalent semantic version tag. |
+| `tagFilter`   | `(tag: string) => boolean` | `(tag) => tag && !tag.endsWith('-schema')` | A function that receives a tag string and returns `true` if the tag should be considered, `false` otherwise. Applied before any other logic. |
+
+
+## Configuration Options (for `generateChangelog`)
 
 The `generateChangelog` function accepts an options object (`ChangelogConfig`) with the following properties:
 
