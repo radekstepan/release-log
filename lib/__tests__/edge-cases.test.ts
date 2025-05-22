@@ -46,6 +46,7 @@ describe('Changelog Generation - Edge Cases', () => {
     const changelog = await generateChangelog({
       repoPath: noTagsTmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
+      // tag: undefined (default)
     });
     expect(changelog).toMatch(new RegExp(`^## Changelog ${DATE_REGEX}`));
     expect(changelog).toContain('### Features');
@@ -65,6 +66,7 @@ describe('Changelog Generation - Edge Cases', () => {
     const changelog = await generateChangelog({
       repoPath: emptyTmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
+      // tag: undefined (default)
     });
     expect(changelog).toMatch(new RegExp(`^## Changelog ${DATE_REGEX}`));
     const significantLines = changelog.split('\n').filter(line => line.trim().length > 0 && !line.startsWith('## Changelog'));
@@ -85,7 +87,7 @@ describe('Changelog Generation - Edge Cases', () => {
 
       const changelog = await generateChangelog({
         repoPath: nonConvTmpDir,
-        toTag: 'v1.0.0',
+        tag: 'v1.0.0',
         githubRepoUrl: GITHUB_REPO_URL,
       });
       expect(changelog).toMatch(new RegExp(`^## \\[v1\\.0\\.0\\]\\(${GITHUB_REPO_URL}/tree/v1\\.0\\.0\\) ${DATE_REGEX}`));

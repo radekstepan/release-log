@@ -69,7 +69,7 @@ describe('Changelog Generation - Custom Commit Types', () => {
     
     const customConfig: ChangelogConfig = {
       repoPath: tmpDir, 
-      fromTag: 'v0.9.0-custom-base', // Use the base tag created in beforeAll
+      tag: { from: 'v0.9.0-custom-base' }, 
       unreleased: true, 
       commitTypes: {
         feat: 'Awesome New Features', 

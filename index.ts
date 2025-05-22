@@ -1,6 +1,6 @@
 import { generateChangelog as internalGenerateChangelog } from './lib/changelog-generator';
 // Import ChangelogUserConfig directly for re-export
-import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig } from './lib/config';
+import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange } from './lib/config';
 import { CommitEntry } from './lib/commit_parser';
 
 export interface ChangelogConfig extends Config {}
@@ -19,4 +19,4 @@ export async function generateChangelog(options: ChangelogConfig = {}): Promise<
 
 // Re-export types for direct usage if preferred by consumers
 // Now ChangelogUserConfig is directly imported and can be re-exported by its original name.
-export { type ChangelogUserConfig, type CommitFilter, type TagFilter, type CommitEntry };
+export { type ChangelogUserConfig, type CommitFilter, type TagFilter, type CommitEntry, type TagRange };

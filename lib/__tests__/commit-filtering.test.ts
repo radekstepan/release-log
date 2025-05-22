@@ -81,8 +81,7 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     // Range v1.0.0_filter_base to v1.1.0_filter_target includes commit 3 (chore)
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v1.0.0_filter_base',
-      toTag: 'v1.1.0_filter_target',
+      tag: { from: 'v1.0.0_filter_base', to: 'v1.1.0_filter_target' },
       commitFilter,
       githubRepoUrl: GITHUB_REPO_URL,
     });
@@ -97,8 +96,7 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
      // Range v1.0.0_filter_base to v1.1.0_filter_target includes commit 1 ([WIP])
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v1.0.0_filter_base',
-      toTag: 'v1.1.0_filter_target',
+      tag: { from: 'v1.0.0_filter_base', to: 'v1.1.0_filter_target' },
       commitFilter,
       githubRepoUrl: GITHUB_REPO_URL,
     });
@@ -110,8 +108,7 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
      // Range v1.0.0_filter_base to v1.1.0_filter_target (commits 1, 2, 3)
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v1.0.0_filter_base',
-      toTag: 'v1.1.0_filter_target',
+      tag: { from: 'v1.0.0_filter_base', to: 'v1.1.0_filter_target' },
       githubRepoUrl: GITHUB_REPO_URL,
     });
     expect(changelog).toContain('Add email templates PROJ-A1 [WIP]');
@@ -134,8 +131,7 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
 
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v1.1.0_filter_target',
-      toTag: 'v1.2.0_jira_target',
+      tag: { from: 'v1.1.0_filter_target', to: 'v1.2.0_jira_target' },
       commitFilter,
       githubRepoUrl: GITHUB_REPO_URL,
     });
@@ -161,8 +157,7 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
 
       const changelog = await generateChangelog({
           repoPath: tmpDir,
-          fromTag: 'v1.1.0_filter_target',
-          toTag: 'v1.2.0_jira_target',
+          tag: { from: 'v1.1.0_filter_target', to: 'v1.2.0_jira_target' },
           commitFilter,
           githubRepoUrl: GITHUB_REPO_URL,
       });

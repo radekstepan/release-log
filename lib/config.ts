@@ -3,7 +3,12 @@ import { CommitEntry } from './commit_parser'; // Import CommitEntry
 
 export type CommitTypeMapping = Record<string, string>;
 export type TagFilter = (tag: string) => boolean;
-export type CommitFilter = (commit: CommitEntry) => boolean; // New type for commitFilter
+export type CommitFilter = (commit: CommitEntry) => boolean;
+
+export type TagRange = {
+  from?: string;
+  to?: string;
+};
 
 export interface ChangelogUserConfig {
   repoPath?: string;
@@ -11,10 +16,9 @@ export interface ChangelogUserConfig {
   githubRepoUrl?: string | null;
   unreleased?: boolean;
   save?: boolean;
-  fromTag?: string | null;
-  toTag?: string | null;
+  tag?: string | TagRange | null; // Replaces fromTag and toTag
   tagFilter?: TagFilter;
-  commitFilter?: CommitFilter; // Added commitFilter
+  commitFilter?: CommitFilter;
   commitTypes?: CommitTypeMapping;
 }
 
@@ -24,10 +28,9 @@ export interface ResolvedChangelogConfig {
   githubRepoUrl: string | null;
   unreleased: boolean;
   save: boolean;
-  fromTag: string | null;
-  toTag: string | null;
+  tag?: string | TagRange | null; // Replaces fromTag and toTag
   tagFilter: TagFilter;
-  commitFilter: CommitFilter; // Added commitFilter
+  commitFilter: CommitFilter;
   commitTypes: CommitTypeMapping;
 }
 
@@ -46,7 +49,7 @@ export const DEFAULT_COMMIT_TYPES: CommitTypeMapping = {
 };
 
 const defaultTagFilter: TagFilter = (tag: string): boolean => Boolean(tag && !tag.endsWith('-schema'));
-const defaultCommitFilter: CommitFilter = (_commit: CommitEntry): boolean => true; // Default commit filter
+const defaultCommitFilter: CommitFilter = (_commit: CommitEntry): boolean => true;
 
 export function resolveConfig(userConfig: ChangelogUserConfig = {}): ResolvedChangelogConfig {
   const config: ResolvedChangelogConfig = {
@@ -55,10 +58,9 @@ export function resolveConfig(userConfig: ChangelogUserConfig = {}): ResolvedCha
     githubRepoUrl: userConfig.githubRepoUrl === undefined ? null : userConfig.githubRepoUrl,
     unreleased: userConfig.unreleased ?? false,
     save: userConfig.save ?? false,
-    fromTag: userConfig.fromTag === undefined ? null : userConfig.fromTag,
-    toTag: userConfig.toTag === undefined ? null : userConfig.toTag,
+    tag: userConfig.tag === undefined ? undefined : userConfig.tag, // Initialize tag
     tagFilter: defaultTagFilter,
-    commitFilter: defaultCommitFilter, // Initialize with default
+    commitFilter: defaultCommitFilter,
     commitTypes: { ...DEFAULT_COMMIT_TYPES, ...(userConfig.commitTypes || {}) },
   };
 

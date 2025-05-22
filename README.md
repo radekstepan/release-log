@@ -11,10 +11,11 @@ A library to programmatically generate changelogs from git history and conventio
     *   Commits are listed with asterisks, scopes, and links: `* **scope:** message ([hash](commit_url))`.
 *   **Conventional Commits Parsing:** Understands standard conventional commit types (`feat`, `fix`, `perf`, `docs`, etc.) and breaking change indicators (`!` or `BREAKING CHANGE:` footer).
 *   **Tag-Based Changelogs:**
-    *   Generate changelog for a specific tag range (e.g., `v1.0.0..v1.1.0`).
-    *   Generate changelog for a single release (e.g., all commits up to `v1.0.0`).
-    *   Generate changelog for the latest release by default.
-*   **Unreleased Changes:** Generate a section for "Unreleased" changes since the last tag or a specific tag.
+    *   Generate changelog for a specific tag (e.g., `v1.0.0`).
+    *   Generate changelog for a range between two tags (e.g., `v1.0.0..v1.1.0`).
+    *   Generate changelog from a specific tag to the latest tag or `HEAD`.
+    *   Generate changelog for the latest release by default if no tag is specified.
+*   **Unreleased Changes:** Generate a section for "Unreleased" changes since the last tag, a specific tag, or by default.
 *   **Customizable Commit Types:** Define custom commit types or override default section titles (e.g., map `feat` to "✨ New Features"). These will be sorted after standard Angular sections.
 *   **JIRA Integration:**
     *   Automatically extracts JIRA ticket IDs (e.g., `PROJ-123`) from commit messages.
@@ -55,8 +56,26 @@ async function createChangelog() {
     const changelogContent = await generateChangelog({
       repoPath: '/path/to/your/git/repository', // Defaults to process.cwd()
       githubRepoUrl: 'https://github.com/your-org/your-repo' // For commit and comparison links
+      // 'tag' option is undefined by default, meaning latest release.
     });
     console.log(changelogContent);
+
+    // Generate changelog for a specific tag
+    const v1changelog = await generateChangelog({
+      repoPath: '/path/to/your/git/repository',
+      tag: 'v1.0.0',
+      githubRepoUrl: 'https://github.com/your-org/your-repo'
+    });
+    console.log(v1changelog);
+
+    // Generate changelog for a range
+    const v1toV2changelog = await generateChangelog({
+      repoPath: '/path/to/your/git/repository',
+      tag: { from: 'v1.0.0', to: 'v1.1.0' },
+      githubRepoUrl: 'https://github.com/your-org/your-repo'
+    });
+    console.log(v1toV2changelog);
+
   } catch (error) {
     console.error('Failed to generate changelog:', error);
   }
@@ -75,6 +94,9 @@ async function updateMyChangelog() {
     const options: ChangelogConfig = {
       repoPath: process.cwd(),
       unreleased: true, 
+      // When unreleased is true and tag is not specified, 
+      // it generates from the latest tag to HEAD.
+      // To specify a base for unreleased: tag: { from: 'vSpecificTag' }
       save: true,
       changelogFile: 'CHANGELOG.md', 
       githubRepoUrl: 'https://github.com/your-org/your-repo',
@@ -111,18 +133,17 @@ updateMyChangelog();
 
 The `generateChangelog` function accepts an options object (`ChangelogConfig`) with the following properties:
 
-| Option          | Type                               | Default                                                      | Description                                                                                                                                                              |
-| --------------- | ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `repoPath`      | `string`                           | `process.cwd()`                                              | Path to the git repository.                                                                                                                                              |
-| `fromTag`       | `string \| null`                   | `null`                                                       | The git tag to start the changelog from (exclusive). If `unreleased` is true, this is the tag to compare HEAD against. If `null` & `unreleased`, uses the latest tag.      |
-| `toTag`         | `string \| null`                   | `null`                                                       | The git tag to end the changelog at (inclusive). Ignored if `unreleased` is true. If `null` & not `unreleased`, uses the latest tag.                                      |
-| `unreleased`    | `boolean`                          | `false`                                                      | If true, generates changelog for commits since `fromTag` (or latest tag if `fromTag` is `null`) up to HEAD. The title will reflect unreleased status.                         |
-| `save`          | `boolean`                          | `false`                                                      | If true, saves the generated changelog by prepending it to the specified file.                                                                                           |
-| `changelogFile` | `string`                           | `'CHANGELOG.md'`                                             | File path to save/update the changelog. Used if `save` is true. Relative to `repoPath` if not absolute.                                                                 |
-| `commitTypes`   | `Record<string, string>`           | See [Default Commit Types](#default-commit-types)            | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'New Features', 'Bug Fixes'). Merged with defaults, custom values override. Custom-titled sections are sorted alphabetically after standard sections. |
-| `githubRepoUrl` | `string \| null`                   | `null`                                                       | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes, tags, and comparisons. If `null`, links are not generated.                    |
-| `tagFilter`     | `(tag: string) => boolean`         | `(tag) => tag && !tag.endsWith('-schema')`                   | A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.                                             |
-| `commitFilter`  | `(commit: CommitEntry) => boolean` | `(_commit) => true`                                          | A function that receives a parsed `CommitEntry` object and returns `true` if the commit should be included in the changelog, `false` otherwise. Executed after parsing but before JIRA deduplication and categorization. |
+| Option          | Type                                               | Default                                                      | Description                                                                                                                                                              |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `repoPath`      | `string`                                           | `process.cwd()`                                              | Path to the git repository.                                                                                                                                              |
+| `tag`           | `string \| { from?: string; to?: string; } \| null \| undefined` | `undefined`                                                  | Specifies the tag or range for the changelog. <br> - `string`: (e.g., `'v1.0.0'`) Commits for this specific tag. <br> - `{ from: 'v1', to: 'v2' }`: Commits between `v1` (exclusive) and `v2` (inclusive). <br> - `{ from: 'v1' }`: Commits from `v1` to the latest tag (or `HEAD` if `unreleased`). <br> - `{ to: 'v2' }`: Commits for tag `v2`. <br> - `undefined/null`: Latest release (if `unreleased: false`), or from latest tag to `HEAD` (if `unreleased: true`). |
+| `unreleased`    | `boolean`                                          | `false`                                                      | If true, generates changelog for commits up to `HEAD`. The starting point is determined by the `tag` option (or latest tag if `tag.from` is not set). The title will reflect "Unreleased". |
+| `save`          | `boolean`                                          | `false`                                                      | If true, saves the generated changelog by prepending it to the specified file.                                                                                           |
+| `changelogFile` | `string`                                           | `'CHANGELOG.md'`                                             | File path to save/update the changelog. Used if `save` is true. Relative to `repoPath` if not absolute.                                                                 |
+| `commitTypes`   | `Record<string, string>`                           | See [Default Commit Types](#default-commit-types)            | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'New Features', 'Bug Fixes'). Merged with defaults, custom values override. Custom-titled sections are sorted alphabetically after standard sections. |
+| `githubRepoUrl` | `string \| null`                                   | `null`                                                       | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes, tags, and comparisons. If `null`, links are not generated.                    |
+| `tagFilter`     | `(tag: string) => boolean`                         | `(tag) => tag && !tag.endsWith('-schema')`                   | A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.                                             |
+| `commitFilter`  | `(commit: CommitEntry) => boolean`                 | `(_commit) => true`                                          | A function that receives a parsed `CommitEntry` object and returns `true` if the commit should be included in the changelog, `false` otherwise. Executed after parsing but before JIRA deduplication and categorization. |
 
 The `CommitEntry` object passed to `commitFilter` has the following structure:
 ```typescript
@@ -203,4 +224,4 @@ To work on this project:
     ```
     Tests will be run on the TypeScript files directly using `ts-jest`.
 
-The tests in `lib/__tests__/changelog.test.ts` provide comprehensive examples of the library's capabilities and are a good place to understand its behavior.
+The tests in `lib/__tests__/` provide comprehensive examples of the library's capabilities and are a good place to understand its behavior.

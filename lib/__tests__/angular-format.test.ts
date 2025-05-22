@@ -104,8 +104,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
   test('formats changelog for specific tag range (v0.2.0..v0.3.0) with Angular preset style', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v0.2.0',
-      toTag: 'v0.3.0',
+      tag: { from: 'v0.2.0', to: 'v0.3.0' },
       githubRepoUrl: GITHUB_REPO_URL,
     });
 
@@ -127,8 +126,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
   test('generates changelog with BREAKING CHANGES, section order, and formatting for v0.3.0..v0.3.1', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v0.3.0',
-      toTag: 'v0.3.1',
+      tag: { from: 'v0.3.0', to: 'v0.3.1' },
       githubRepoUrl: GITHUB_REPO_URL,
     });
     // Commits for this range are 11, 12, 13, 14, 15
@@ -172,7 +170,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
   test('formats release header with tree link for the first tag (v0.1.0)', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      toTag: 'v0.1.0',
+      tag: 'v0.1.0',
       githubRepoUrl: GITHUB_REPO_URL,
     });
     // Commits for v0.1.0 are 0, 1, 2, 3

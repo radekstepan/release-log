@@ -1,6 +1,6 @@
 {
   "name": "release-log",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A library to programmatically generate changelogs from git history and conventional commits.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

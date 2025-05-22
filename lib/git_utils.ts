@@ -1,5 +1,5 @@
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
-import { ResolvedChangelogConfig } from './config';
+import { ResolvedChangelogConfig, TagRange } from './config';
 
 export function git(command: string, cwd: string): string {
   try {
@@ -47,37 +47,100 @@ export function getPreviousTag(currentTag: string, config: ResolvedChangelogConf
   return null;
 }
 
-export function getCommitRange(config: ResolvedChangelogConfig): string {
+export interface CommitRangeDetails {
+  range: string;                 // For git log command
+  displayFromTag: string | null; // For compare link (LHS) or null if from beginning/first tag
+  displayToTag: string | null;   // For compare link (RHS), version header, or null if unreleased/all commits
+}
+
+export function getCommitRangeDetails(
+  config: ResolvedChangelogConfig
+): CommitRangeDetails {
+  let reqFrom: string | undefined;
+  let reqTo: string | undefined;
+
+  if (typeof config.tag === 'string') {
+    reqTo = config.tag;
+  } else if (typeof config.tag === 'object' && config.tag !== null) {
+    reqFrom = config.tag.from;
+    reqTo = config.tag.to;
+  }
+  // If config.tag is undefined or null, reqFrom and reqTo remain undefined.
+
   if (config.unreleased) {
-    const baseTagForUnreleased = config.fromTag || getLatestTag(config);
-    return baseTagForUnreleased ? `${baseTagForUnreleased}..HEAD` : 'HEAD';
+    const base = reqFrom || getLatestTag(config);
+    return {
+      range: base ? `${base}..HEAD` : 'HEAD',
+      displayFromTag: base,
+      displayToTag: null, // Signifies "Unreleased"
+    };
   }
 
-  if (config.fromTag && config.toTag) {
-    return `${config.fromTag}..${config.toTag}`;
-  }
-
-  let effectiveToTag = config.toTag;
-  let effectiveFromTag = config.fromTag;
-
-  if (!effectiveToTag) {
-    effectiveToTag = getLatestTag(config);
-    if (effectiveToTag && !effectiveFromTag) {
-      effectiveFromTag = getPreviousTag(effectiveToTag, config);
+  // Not unreleased
+  if (reqFrom && reqTo) {
+    if (reqFrom === reqTo) { // e.g., tag: { from: 'v1', to: 'v1' }
+      // Interpret as "commits for this single tag"
+      const prev = getPreviousTag(reqTo, config);
+      return {
+        range: prev ? `${prev}..${reqTo}` : reqTo,
+        displayFromTag: prev,
+        displayToTag: reqTo,
+      };
     }
-  } else {
-    if (!effectiveFromTag) {
-      effectiveFromTag = getPreviousTag(effectiveToTag, config);
-    }
+    return { range: `${reqFrom}..${reqTo}`, displayFromTag: reqFrom, displayToTag: reqTo };
   }
 
-  if (effectiveToTag) {
-    if (effectiveFromTag) {
-      return `${effectiveFromTag}..${effectiveToTag}`;
-    } else {
-      return effectiveToTag;
-    }
-  } else {
-    return 'HEAD';
+  if (reqTo) { // Only 'to' was requested (e.g., tag: 'v1.0.0' or tag: {to: 'v1.0.0'})
+              // This means commits for the release 'reqTo'.
+    const prev = getPreviousTag(reqTo, config);
+    return {
+      range: prev ? `${prev}..${reqTo}` : reqTo,
+      displayFromTag: prev,
+      displayToTag: reqTo,
+    };
   }
+
+  if (reqFrom) { // Only 'from' was requested (e.g., tag: {from: 'v1.0.0'})
+                // This means commits from 'reqFrom' up to the latest tag.
+    const latest = getLatestTag(config);
+    if (!latest || !getTags(config).includes(reqFrom)) {
+      // reqFrom is invalid or no tags exist. Fallback to "for reqFrom" if it's the only one.
+      const prev = getPreviousTag(reqFrom, config); // Assumes reqFrom is a valid tag if we reach here
+      return { range: prev ? `${prev}..${reqFrom}` : reqFrom, displayFromTag: prev, displayToTag: reqFrom };
+    }
+
+    if (latest === reqFrom) { // reqFrom IS the latest tag.
+                              // This is effectively asking for the release of 'latest'.
+      const prev = getPreviousTag(latest, config);
+      return {
+        range: prev ? `${prev}..${latest}` : latest,
+        displayFromTag: prev,
+        displayToTag: latest,
+      };
+    }
+    // reqFrom is older than latest. Range is reqFrom..latest
+    return {
+      range: `${reqFrom}..${latest}`,
+      displayFromTag: reqFrom,
+      displayToTag: latest,
+    };
+  }
+
+  // Neither 'from' nor 'to' explicitly requested (tag: undefined or null). Means "latest release".
+  const latest = getLatestTag(config);
+  if (latest) {
+    const prev = getPreviousTag(latest, config);
+    return {
+      range: prev ? `${prev}..${latest}` : latest,
+      displayFromTag: prev,
+      displayToTag: latest,
+    };
+  }
+
+  // No tags in repo, no specific request. All commits.
+  return {
+    range: 'HEAD',
+    displayFromTag: null,
+    displayToTag: null, // Will result in generic "Changelog" title
+  };
 }

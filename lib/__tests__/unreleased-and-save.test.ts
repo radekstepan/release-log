@@ -91,7 +91,7 @@ describe('Changelog Generation - Unreleased and Save Functionality', () => {
     
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      unreleased: true,
+      unreleased: true, // tag will default to { from: <latest_tag> }
       githubRepoUrl: GITHUB_REPO_URL, 
     });
 
@@ -111,7 +111,7 @@ describe('Changelog Generation - Unreleased and Save Functionality', () => {
 
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v0.3.1', 
+      tag: { from: 'v0.3.1' }, 
       unreleased: true,
       githubRepoUrl: GITHUB_REPO_URL,
     });
@@ -142,7 +142,7 @@ describe('Changelog Generation - Unreleased and Save Functionality', () => {
 
     await generateChangelog({
       repoPath: tmpDir,
-      unreleased: true, 
+      unreleased: true, // tag: undefined (defaults to latest tag as 'from' for unreleased)
       save: true,
       changelogFile: changelogFileName,
       githubRepoUrl: GITHUB_REPO_URL,
@@ -157,8 +157,7 @@ describe('Changelog Generation - Unreleased and Save Functionality', () => {
     // Commits for v0.3.0 (since v0.2.0) is "feat: Add password reset feature PROJ-127"
     await generateChangelog({
       repoPath: tmpDir,
-      fromTag: 'v0.2.0', 
-      toTag: 'v0.3.0',
+      tag: { from: 'v0.2.0', to: 'v0.3.0'},
       save: true,
       changelogFile: changelogFileName,
       githubRepoUrl: GITHUB_REPO_URL,
