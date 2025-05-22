@@ -1,8 +1,8 @@
-import { generateChangelog as internalGenerateChangelog } from './lib/changelog-generator';
+import { generateChangelog as internalGenerateChangelog } from './changelog-generator';
 // Import ChangelogUserConfig directly for re-export
-import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange, PreviousMajorVersionTagsOptions } from './lib/config';
-import { CommitEntry } from './lib/commit_parser';
-import { getPreviousMajorVersionTags as internalGetPreviousMajorTags } from './lib/git_utils';
+import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange, PreviousMajorVersionTagsOptions } from './config';
+import { CommitEntry } from './commit_parser';
+import { getPreviousMajorVersionTags as internalGetPreviousMajorTags } from './git_utils';
 
 export interface ChangelogConfig extends Config {}
 
