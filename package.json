@@ -1,13 +1,13 @@
 {
   "name": "release-log",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "A library to programmatically generate changelogs from git history and conventional commits.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "jest",
     "build": "tsc",
-    "prepare": "yarn run build"
+    "postinstall": "yarn run build"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
