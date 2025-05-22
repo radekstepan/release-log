@@ -24,6 +24,7 @@ This tool helps automate the process of creating and maintaining `CHANGELOG.md` 
     *   Flexible tag filtering using a `tagFilter` function (defaults to ignoring tags ending with `-schema`).
     *   Gracefully handles repositories with no tags, no commits, or no conventional commits within a range.
 *   **Flexible Configuration:** Highly configurable to suit various project needs.
+*   **Preset Support:** Supports presets for changelog generation, starting with the `angular` preset, which formats changelogs according to Angular conventions, including a dedicated "BREAKING CHANGES" section.
 
 ## Installation
 
@@ -69,7 +70,10 @@ async function updateMyChangelog() {
       save: true,
       changelogFile: 'CHANGELOG.md', // File to save to (relative to repoPath)
       githubRepoUrl: 'https://github.com/your-org/your-repo',
-      commitTypes: {
+      // preset: 'angular', // Uncomment to use the Angular preset
+      // commitTypes are typically overridden by the preset if 'angular' is active.
+      // If no preset is active, or if the preset doesn't define specific types, these can be used.
+      commitTypes: { 
         feat: '🚀 New Features & Enhancements',
         fix: '🐛 Bug Fixes',
         perf: '⚡ Performance Improvements',
@@ -102,6 +106,34 @@ The `generateChangelog` function accepts an options object with the following pr
 | `commitTypes`   | `Record<string, string>`           | See [Default Commit Types](#default-commit-types)            | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'Features', 'Bug Fixes'). Merged with defaults, custom values override. |
 | `githubRepoUrl` | `string \| null`                   | `null`                                                       | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes. If `null`, links are not generated.                    |
 | `tagFilter`     | `(tag: string) => boolean`         | `(tag) => tag && !tag.endsWith('-schema')`                   | A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.                                             |
+| `preset`        | `string \| null`                   | `null`                                                       | Specifies a preset to use for changelog generation. Currently supported: `'angular'`. When a preset is active, it may override default `commitTypes` and formatting rules. |
+
+## Presets
+
+The `preset` option allows you to use predefined configurations for generating changelogs, tailored to specific project conventions.
+
+### Angular Preset
+
+When you set `preset: 'angular'`, the changelog will be formatted according to the conventions used by the [Angular project](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#commit). This preset typically includes sections such as Features (✨), Bug Fixes (🐛), Performance Improvements (⚡️), and importantly, a dedicated "BREAKING CHANGES" section at the top.
+
+**Commit Message Conventions for Angular Preset:**
+
+The Angular preset relies heavily on commit messages following the Conventional Commits specification, with specific attention to how breaking changes are denoted.
+
+*   **Standard Structure:** `type(scope): subject`
+*   **Breaking Changes:** To denote a breaking change, the commit body **must** include a footer starting with `BREAKING CHANGE:` or `BREAKING-CHANGE:` (case-insensitive), followed by a detailed description of the change.
+
+    Example of a commit with a breaking change:
+    ```
+    feat(api): implement new user endpoint
+
+    This commit introduces the new `/users` endpoint.
+
+    BREAKING CHANGE: The previous `/user/profiles` endpoint is now deprecated and will be removed in v3.0.0.
+    Please migrate to the new `/users` endpoint.
+    ```
+
+    Commits marked this way will have their breaking change notes extracted and displayed prominently in the "BREAKING CHANGES" section at the top of the generated changelog for that release. The original commit will also appear under its respective type (e.g., "Features").
 
 ## Conventional Commits
 
@@ -139,6 +171,7 @@ The following commit types are recognized by default and mapped to these section
 | `revert`   | Reverts                  |
 
 You can customize these titles or add new types using the `commitTypes` option. Custom types will be sorted alphabetically after the default types.
+**Note:** If a `preset` is used (e.g., `'angular'`), it will typically define its own set of commit types and section titles, which would take precedence over these defaults and any custom `commitTypes` provided.
 
 ## Development
 

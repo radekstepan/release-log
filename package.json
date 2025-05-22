@@ -12,5 +12,8 @@
   "jest": {
     "testEnvironment": "node"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "conventional-changelog-angular": "^8.0.0"
+  }
 }
