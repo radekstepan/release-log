@@ -68,10 +68,13 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
     else { // All commits, no tags
         headerDisplayPart = 'Changelog';
     }
-    changelog += `${headerLevel} ${headerDisplayPart} (${date})\n\n`; // Header + 1 blank line (total 2 newlines before first section)
+    // Header + 2 blank lines (3 newlines total before first section if body exists)
+    changelog += `${headerLevel} ${headerDisplayPart} (${date})\n\n\n`;
     const allCommits = Object.values(categories).flat();
     const breakingCommits = allCommits.filter(c => c.isExclamationBreaking || c.breakingNotes.length > 0);
+    let hasBodyContent = false;
     if (breakingCommits.length > 0) {
+        hasBodyContent = true;
         changelog += `### BREAKING CHANGES\n\n`; // Section title + 1 blank line
         breakingCommits.forEach(entry => {
             const scopeText = entry.scope ? `**${entry.scope}:** ` : '';
@@ -88,31 +91,31 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
                 });
             }
         });
-        changelog += '\n'; // 1 blank line after section items (total 2 newlines before next section or end)
+        changelog += '\n\n\n'; // 2 blank lines after section items (total 3 newlines before next section or end)
     }
     Object.keys(categories)
         .sort((aTitle, bTitle) => aTitle.localeCompare(bTitle)) // Sort alphabetically
         .forEach(categoryTitle => {
         if (categories[categoryTitle].length > 0) {
+            hasBodyContent = true;
             changelog += `### ${categoryTitle}\n\n`; // Section title + 1 blank line
             categories[categoryTitle].forEach(entry => {
                 const scopeText = entry.scope ? `**${entry.scope}:** ` : '';
                 const commitLink = baseUrl ? `([${entry.hash}](${baseUrl}commit/${entry.hash}))` : `(${entry.hash})`;
                 changelog += `* ${scopeText}${entry.message} ${commitLink}\n`;
             });
-            changelog += '\n'; // 1 blank line after section items (total 2 newlines before next section or end)
+            changelog += '\n\n\n'; // 2 blank lines after section items (total 3 newlines before next section or end)
         }
     });
-    // Consolidate multiple newlines at the end to ensure exactly two newlines if there's body content,
-    // or one newline if only header.
-    const headerPlusInitialNewlines = `${headerLevel} ${headerDisplayPart} (${date})\n`;
-    let bodyPart = changelog.substring(headerPlusInitialNewlines.length);
-    bodyPart = bodyPart.replace(/\n\n+/g, '\n\n').trimEnd(); // Replace 3+ newlines with 2, then trim any trailing
-    if (bodyPart.length > 0) {
-        return headerPlusInitialNewlines + '\n' + bodyPart + '\n\n';
+    // Final cleanup of trailing newlines.
+    // If there was any body content, ensure it ends with exactly two newlines (\n\n).
+    // If there was no body content (only header), ensure it ends with one newline (\n).
+    if (hasBodyContent) {
+        // Remove all trailing newlines, then add back two.
+        return changelog.trimEnd() + '\n\n';
     }
     else {
-        // No body content, just the header.
-        return headerPlusInitialNewlines;
+        // Only header was present. Remove its initial 3 newlines and add back one.
+        return `${headerLevel} ${headerDisplayPart} (${date})\n`;
     }
 }

@@ -89,33 +89,33 @@ describe('Changelog Generation - Custom Commit Types', () => {
       tag: { from: 'v0.9.0-custom-base' }, 
       unreleased: true, 
       commitTypes: {
-        feat: 'Awesome New Features', // This will be sorted as "Awesome New Features"
-        improvement: 'Enhancements', // This will be sorted as "Enhancements"
+        feat: 'Awesome New Features', 
+        improvement: 'Enhancements', 
       },
       githubRepoUrl: GITHUB_REPO_URL,
     };
 
     createCommit('feat: A super cool new thing! CSTM-001', 'new_thing.js');
     createCommit('improvement: Made something better IMP-001', 'improvement.js');
-    createCommit('fix: A normal fix (should use default title) FIX-002', 'fix_normal.js'); // Default: "Bug Fixes"
-    createCommit('chore: A chore for custom types test CSTM-CHR-01', 'chore_file_custom.js'); // Default: "Chores"
+    createCommit('fix: A normal fix (should use default title) FIX-002', 'fix_normal.js');
+    createCommit('chore: A chore for custom types test CSTM-CHR-01', 'chore_file_custom.js');
     
     const changelog = await generateChangelog(customConfig);
 
-    // Header for unreleased section
-    expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.9\\.0-custom-base\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
+    // Expect 3 newlines after header if body content exists
+    expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.9\\.0-custom-base\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     
     expect(changelog).toContain('### Awesome New Features\n\n');
-    expect(changelog).toMatch(new RegExp(`\\* A super cool new thing! CSTM-001 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* A super cool new thing! CSTM-001 ${COMMIT_LINK_REGEX}\n\n\n`)); // Expect 3 newlines after section content
     
     expect(changelog).toContain('### Enhancements\n\n'); 
-    expect(changelog).toMatch(new RegExp(`\\* Made something better IMP-001 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* Made something better IMP-001 ${COMMIT_LINK_REGEX}\n`)); // This is the last section in this sort order
     
     expect(changelog).toContain('### Bug Fixes\n\n'); 
-    expect(changelog).toMatch(new RegExp(`\\* A normal fix \\(should use default title\\) FIX-002 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* A normal fix \\(should use default title\\) FIX-002 ${COMMIT_LINK_REGEX}\n\n\n`)); // Expect 3 newlines
 
     expect(changelog).toContain('### Chores\n\n'); 
-    expect(changelog).toMatch(new RegExp(`\\* A chore for custom types test CSTM-CHR-01 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* A chore for custom types test CSTM-CHR-01 ${COMMIT_LINK_REGEX}\n\n\n`)); // Expect 3 newlines
 
     const awesomeIdx = changelog.indexOf('### Awesome New Features');
     const bugFixesIdx = changelog.indexOf('### Bug Fixes');

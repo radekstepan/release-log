@@ -102,12 +102,6 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     createCommit('perf: Optimize database queries PROJ-130', 'DB optimization', 'db.js'); //10
     execInTmpDir('git tag v0.3.0'); 
 
-    // Order of these commits for v0.3.1:
-    // 11: feat(api)!: Introduce new API version, old one deprecated BC-BANG-001 (#80)
-    // 12: fix(ui): Adjust layout due to API changes BC-NOTE-001\n\nBREAKING CHANGE: The user profile layout has changed...
-    // 13: perf(db): Optimize another user query PERF-002
-    // 14: revert: Revert "feat: Add password reset feature PROJ-127" RVT-001
-    // 15: feat(module)!: Complete rewrite of module X BC-BOTH-001 (#81)\n\nBREAKING CHANGE: Module X API is entirely new...
     createCommit('feat(api)!: Introduce new API version, old one deprecated BC-BANG-001 (#80)', 'api_v2.js'); // 11
     createCommit('fix(ui): Adjust layout due to API changes BC-NOTE-001\n\nBREAKING CHANGE: The user profile layout has changed significantly. Users need to update their settings.\nAnother line for the note.', 'ui_bc_note.js'); // 12
     createCommit('perf(db): Optimize another user query PERF-002', 'db_perf2.js'); // 13
@@ -140,30 +134,29 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     });
     
     // Header is H1 for v0.3.0 (minor release from v0.2.0)
-    expect(changelog).toMatch(new RegExp(`^# \\[0\\.3\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.2\\.0\\.\\.\\.v0\\.3\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
+    // Expect 3 newlines after header if body content exists
+    expect(changelog).toMatch(new RegExp(`^# \\[0\\.3\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.2\\.0\\.\\.\\.v0\\.3\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     
     // Sections should be alphabetical: Bug Fixes, Features, Performance Improvements
     const bugFixesSectionRegex = new RegExp(
       escapeRegExp(`### Bug Fixes\n\n`) +
-      escapeRegExp(`* Fix URL parsing PROJ-129 (#79) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`) // End of section: 2 newlines
+      escapeRegExp(`* Fix URL parsing PROJ-129 (#79) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n\n`) 
     );
     expect(changelog).toMatch(bugFixesSectionRegex);
 
     const featuresSectionRegex = new RegExp(
       escapeRegExp(`### Features\n\n`) +
       escapeRegExp(`* Add password reset feature PROJ-127 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`* **email:** Add email templates PROJ-128 [WIP] `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`) // End of section: 2 newlines
+      escapeRegExp(`* **email:** Add email templates PROJ-128 [WIP] `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n\n`) 
     );
     expect(changelog).toMatch(featuresSectionRegex);
     
     const perfSectionRegex = new RegExp(
       escapeRegExp(`### Performance Improvements\n\n`) +
       escapeRegExp(`* Optimize database queries PROJ-130 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`)
-      // This is the last section in this test case, so it ends with \n\n after body trim.
     );
     expect(changelog).toMatch(perfSectionRegex);
     
-    // Check order
     const bugFixesIdx = changelog.indexOf('### Bug Fixes');
     const featuresIdx = changelog.indexOf('### Features');
     const perfIdx = changelog.indexOf('### Performance Improvements');
@@ -183,7 +176,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
       githubRepoUrl: GITHUB_REPO_URL,
     });
     // Header is H2 for v0.3.1 (patch release from v0.3.0)
-    expect(changelog).toMatch(new RegExp(`^## \\[0\\.3\\.1\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.3\\.1\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
 
     const breakingSectionRegex = new RegExp(
       escapeRegExp(`### BREAKING CHANGES\n\n`) +
@@ -193,7 +186,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
       escapeRegExp(`  * See migration guide at https://example.com/migrate\n`) +
       escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) + 
       escapeRegExp(`  * The user profile layout has changed significantly. Users need to update their settings.\n`) +
-      escapeRegExp(`  * Another line for the note.\n\n`) // End of section: 2 newlines
+      escapeRegExp(`  * Another line for the note.\n\n\n`) 
     );
     expect(changelog).toMatch(breakingSectionRegex);
 
@@ -204,7 +197,6 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     const revertsIndex = changelog.indexOf('### Reverts');
 
     expect(breakingChangesIndex).toBeGreaterThan(-1);
-    // Alphabetical order after BREAKING CHANGES: Bug Fixes, Features, Performance Improvements, Reverts
     expect(bugFixesIndex).toBeGreaterThan(breakingChangesIndex);
     expect(featuresIndex).toBeGreaterThan(bugFixesIndex);
     expect(perfIndex).toBeGreaterThan(featuresIndex);
@@ -212,20 +204,20 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     
     const bugFixesSectionRegex = new RegExp(
       escapeRegExp(`### Bug Fixes\n\n`) +
-      escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
+      escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n\n`)
     );
     expect(changelog).toMatch(bugFixesSectionRegex);
     
     const featuresSectionRegex = new RegExp(
       escapeRegExp(`### Features\n\n`) +
       escapeRegExp(`* **api:** Introduce new API version, old one deprecated BC-BANG-001 (#80) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`* **module:** Complete rewrite of module X BC-BOTH-001 (#81) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
+      escapeRegExp(`* **module:** Complete rewrite of module X BC-BOTH-001 (#81) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n\n`)
     );
     expect(changelog).toMatch(featuresSectionRegex);
 
     const perfSectionRegex = new RegExp(
       escapeRegExp(`### Performance Improvements\n\n`) +
-      escapeRegExp(`* **db:** Optimize another user query PERF-002 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
+      escapeRegExp(`* **db:** Optimize another user query PERF-002 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n\n`)
     );
     expect(changelog).toMatch(perfSectionRegex);
 
@@ -244,13 +236,11 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
       tag: 'v0.1.0', 
       githubRepoUrl: GITHUB_REPO_URL,
     });
-    // Header is H1 for v0.1.0 (first release)
-    expect(changelog).toMatch(new RegExp(`^# \\[0\\.1\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/tree/v0\\.1\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
+    expect(changelog).toMatch(new RegExp(`^# \\[0\\.1\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/tree/v0\\.1\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     
-    // Alphabetical: Chores, Features
     const choresSectionRegex = new RegExp(
       escapeRegExp(`### Chores\n\n`) +
-      escapeRegExp(`* Initial commit `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
+      escapeRegExp(`* Initial commit `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n\n`)
     );
     expect(changelog).toMatch(choresSectionRegex);
 
@@ -277,10 +267,8 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
       githubRepoUrl: GITHUB_REPO_URL,
     });
 
-    // Header is H2 for v0.4.0-beta (pre-release)
-    expect(changelog).toMatch(new RegExp(`^## \\[0\\.4\\.0-beta\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-beta\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.4\\.0-beta\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-beta\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
 
-    // Alphabetical order: Bug Fixes, Chores, Features
     const bugFixesIndex = changelog.indexOf('### Bug Fixes');
     const choresIndex = changelog.indexOf('### Chores');
     const featuresIndex = changelog.indexOf('### Features');
@@ -288,22 +276,18 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(bugFixesIndex).toBeLessThan(choresIndex);
     expect(choresIndex).toBeLessThan(featuresIndex);
 
-    // Features
     expect(changelog).toContain('### Features\n\n');
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Important feature JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Add new dashboard PROJ-132 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
     
-    // Bug Fixes
     expect(changelog).toContain('### Bug Fixes\n\n');
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Bugfix for JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Fix critical security issue PROJ-131 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Address security vulnerability PROJ-131 (follow-up) ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
 
-    // Chores
     expect(changelog).toContain('### Chores\n\n');
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Setup for JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
     
-    // Ensure order within sections (example for Bug Fixes)
     const bugFixesSectionContent = changelog.substring(changelog.indexOf('### Bug Fixes'));
     expect(bugFixesSectionContent.indexOf('Bugfix for JDTA-1')).toBeLessThan(bugFixesSectionContent.indexOf('Fix critical security issue PROJ-131'));
     expect(bugFixesSectionContent.indexOf('Fix critical security issue PROJ-131')).toBeLessThan(bugFixesSectionContent.indexOf('Address security vulnerability PROJ-131 (follow-up)'));
