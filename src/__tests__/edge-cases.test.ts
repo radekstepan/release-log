@@ -4,10 +4,28 @@ import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
 import { generateChangelog } from '../index';
 
+// Store original Date before mocking
+const ACTUAL_SYSTEM_DATE = global.Date;
+
 describe('Changelog Generation - Edge Cases', () => {
   const GITHUB_REPO_URL = 'https://github.com/test-org/test-repo';
-  const DATE_REGEX = `\\(\\d{4}-\\d{2}-\\d{2}\\)`;
+  const MOCK_DATE_STR = '2023-10-29';
+  const DATE_REGEX_ESCAPED = MOCK_DATE_STR.replace(/-/g, '\\-');
   const COMMIT_LINK_REGEX = `\\(\\[([a-f0-9]{7})\\]\\(${GITHUB_REPO_URL}/commit/\\1\\)\\)`;
+  
+  beforeEach(() => {
+    jest.spyOn(global, 'Date').mockImplementation((...args: any[]) => {
+      if (args.length > 0) {
+        // @ts-ignore
+        return new ACTUAL_SYSTEM_DATE(...args);
+      }
+      return new ACTUAL_SYSTEM_DATE(`${MOCK_DATE_STR}T12:00:00.000Z`);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   const execInDir = (command: string, dir: string): string => {
     try {
@@ -46,13 +64,13 @@ describe('Changelog Generation - Edge Cases', () => {
     const changelog = await generateChangelog({
       repoPath: noTagsTmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
-      // tag: undefined (default)
     });
-    expect(changelog).toMatch(new RegExp(`^## Changelog ${DATE_REGEX}`));
-    expect(changelog).toContain('### Features');
-    expect(changelog).toMatch(new RegExp(`\\* First feature in no-tag repo AA-100 ${COMMIT_LINK_REGEX}`));
-    expect(changelog).toContain('### Bug Fixes');
-    expect(changelog).toMatch(new RegExp(`\\* A bug BB-200 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`^## Changelog \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    expect(changelog).toContain('### Features\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* First feature in no-tag repo AA-100 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toContain('### Bug Fixes\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* A bug BB-200 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog.endsWith('\n\n')).toBe(true);
   });
   
   test('handles empty repository (no commits)', async () => {
@@ -66,11 +84,8 @@ describe('Changelog Generation - Edge Cases', () => {
     const changelog = await generateChangelog({
       repoPath: emptyTmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
-      // tag: undefined (default)
     });
-    expect(changelog).toMatch(new RegExp(`^## Changelog ${DATE_REGEX}`));
-    const significantLines = changelog.split('\n').filter(line => line.trim().length > 0 && !line.startsWith('## Changelog'));
-    expect(significantLines.length).toBe(0); 
+    expect(changelog).toBe(`## Changelog (${MOCK_DATE_STR})\n`);
   });
 
   test('handles repository with commits but no conventional commits in range', async () => {
@@ -83,17 +98,15 @@ describe('Changelog Generation - Edge Cases', () => {
 
       localCreateCommit('Just a regular commit', nonConvTmpDir);
       localCreateCommit('Another regular commit', nonConvTmpDir);
-      execInDir('git tag v1.0.0', nonConvTmpDir);
+      execInDir('git tag v1.0.0', nonConvTmpDir); 
 
       const changelog = await generateChangelog({
         repoPath: nonConvTmpDir,
         tag: 'v1.0.0',
         githubRepoUrl: GITHUB_REPO_URL,
       });
-      expect(changelog).toMatch(new RegExp(`^## \\[v1\\.0\\.0\\]\\(${GITHUB_REPO_URL}/tree/v1\\.0\\.0\\) ${DATE_REGEX}`));
+      expect(changelog).toBe(`# [1.0.0](${GITHUB_REPO_URL}/tree/v1.0.0) (${MOCK_DATE_STR})\n`);
       expect(changelog).not.toContain('### Features');
       expect(changelog).not.toContain('### Bug Fixes');
-      const significantLines = changelog.split('\n').filter(line => line.trim().length > 0 && !line.match(/^## \[[^\]]+\]/));
-      expect(significantLines.length).toBe(0);
   });
 });

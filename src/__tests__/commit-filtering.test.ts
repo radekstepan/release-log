@@ -3,7 +3,10 @@ import path from 'path';
 import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
 import { generateChangelog, CommitEntry } from '../index';
-import { extractIssueNumber } from '../commit-parser'; // Import for unit testing
+import { extractIssueNumber } from '../commit-parser'; 
+
+// Store original Date before mocking
+const ACTUAL_SYSTEM_DATE = global.Date;
 
 describe('Commit Parser Utilities', () => {
   describe('extractIssueNumber', () => {
@@ -41,8 +44,24 @@ describe('Commit Parser Utilities', () => {
 describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
   let tmpDir: string;
   const GITHUB_REPO_URL = 'https://github.com/test-org/test-repo';
-  const DATE_REGEX = `\\(\\d{4}-\\d{2}-\\d{2}\\)`;
+  const MOCK_DATE_STR = '2023-10-29';
+  const DATE_REGEX_ESCAPED = MOCK_DATE_STR.replace(/-/g, '\\-');
   const COMMIT_LINK_REGEX = `\\(\\[([a-f0-9]{7})\\]\\(${GITHUB_REPO_URL}/commit/\\1\\)\\)`;
+
+  beforeEach(() => {
+    jest.spyOn(global, 'Date').mockImplementation((...args: any[]) => {
+      if (args.length > 0) {
+        // @ts-ignore
+        return new ACTUAL_SYSTEM_DATE(...args);
+      }
+      return new ACTUAL_SYSTEM_DATE(`${MOCK_DATE_STR}T12:00:00.000Z`);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
 
   const execInTmpDir = (command: string, silent = false): string => {
     try {
@@ -93,7 +112,6 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     execInTmpDir('git config user.name "Test User"');
     execInTmpDir('git config user.email "test@example.com"');
 
-    // Setup specific for these tests
     createCommit('chore: Initial commit for filter test', '# Test Repository'); //0
     execInTmpDir('git tag v1.0.0_filter_base');
 
@@ -102,26 +120,23 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     createCommit('chore: A chore to be filtered PROJ-A3', 'Chore content'); //3
     execInTmpDir('git tag v1.1.0_filter_target');
     
-    // Commits for JIRA interaction tests
     createCommit('feat: Important feature JDTA-1', 'first commit JDTA-1', 'jira_a1.js'); //4
     createCommit('chore: Setup for JDTA-1', 'chore commit for JDTA-1', 'jira_a2.js'); //5
     createCommit('fix: Bugfix for JDTA-1', 'fix commit for JDTA-1', 'jira_a3.js'); //6
     createCommit('feat: Another feature unrelated OTHER-100', 'unrelated'); //7
     execInTmpDir('git tag v1.2.0_jira_target');
 
-    // Commits for issue number filtering tests
-    execInTmpDir('git tag v1.3.0_issue_base'); // Base for issue tests
+    execInTmpDir('git tag v1.3.0_issue_base'); 
     createCommit('feat: Feature with issue (#101) PROJ-C1', 'content for issue 101'); //8
     createCommit('fix: Fix without issue PROJ-C2', 'content for no issue'); //9
     createCommit('feat: Feature with different issue (#202) PROJ-C3', 'content for issue 202'); //10
     createCommit('chore: Chore with issue (#101) PROJ-C4', 'chore for issue 101'); //11
     createCommit('docs: Docs update with issue in body\n\nThis relates to (#303)', 'docs for issue 303'); //12
-    execInTmpDir('git tag v1.4.0_issue_target'); // Target for issue tests
+    execInTmpDir('git tag v1.4.0_issue_target'); 
   });
 
   test('filters out commits based on type using commitFilter', async () => {
     const commitFilter = (commit: CommitEntry) => commit.type !== 'chore';
-    // Range v1.0.0_filter_base to v1.1.0_filter_target includes commit 3 (chore)
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tag: { from: 'v1.0.0_filter_base', to: 'v1.1.0_filter_target' },
@@ -136,7 +151,6 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
 
   test('filters out commits based on subject content using commitFilter', async () => {
     const commitFilter = (commit: CommitEntry) => !commit.subject.includes('[WIP]');
-     // Range v1.0.0_filter_base to v1.1.0_filter_target includes commit 1 ([WIP])
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tag: { from: 'v1.0.0_filter_base', to: 'v1.1.0_filter_target' },
@@ -148,7 +162,6 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
   });
 
   test('default commitFilter includes all conventional commits', async () => {
-     // Range v1.0.0_filter_base to v1.1.0_filter_target (commits 1, 2, 3)
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tag: { from: 'v1.0.0_filter_base', to: 'v1.1.0_filter_target' },
@@ -160,11 +173,6 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
   });
 
   test('commitFilter interacts correctly with JIRA deduplication', async () => {
-    // Commits for JDTA-1 in range v1.1.0_filter_target to v1.2.0_jira_target:
-    // 4: feat: Important feature JDTA-1
-    // 5: chore: Setup for JDTA-1
-    // 6: fix: Bugfix for JDTA-1
-    // Filter should keep only the 'fix' for JDTA-1.
     const commitFilter = (commit: CommitEntry) => {
       if (commit.jiraTicket === 'JDTA-1') {
         return commit.type === 'fix';
@@ -181,16 +189,11 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     
     expect(changelog).not.toContain('Important feature JDTA-1');
     expect(changelog).not.toContain('Setup for JDTA-1');      
-    expect(changelog).toContain('Bugfix for JDTA-1'); // This is the oldest that passes filter
-    expect(changelog).toContain('Another feature unrelated OTHER-100'); // Should still be present
+    expect(changelog).toContain('Bugfix for JDTA-1'); 
+    expect(changelog).toContain('Another feature unrelated OTHER-100'); 
   });
 
    test('JIRA deduplication: if first commit for a JIRA ID is filtered, subsequent non-filtered one is kept', async () => {
-      // Commits for JDTA-1 in range v1.1.0_filter_target to v1.2.0_jira_target:
-      // 4: feat: Important feature JDTA-1
-      // 5: chore: Setup for JDTA-1
-      // 6: fix: Bugfix for JDTA-1
-      // Filter out 'feat' (4) and 'chore' (5) for JDTA-1. 'fix' (6) should be kept.
       const commitFilter = (commit: CommitEntry) => {
           if (commit.jiraTicket === 'JDTA-1' && (commit.type === 'feat' || commit.type === 'chore')) {
               return false; 
@@ -254,10 +257,10 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     expect(changelog).not.toContain('Docs update with issue in body');
     
     // Check that the changelog is essentially empty of commits from this range
-    const headerRegex = new RegExp(`^## \\[v1\\.4\\.0_issue_target\\]\\(${GITHUB_REPO_URL}/compare/v1\\.3\\.0_issue_base\\.\\.\\.v1\\.4\\.0_issue_target\\) ${DATE_REGEX}`);
-    expect(changelog).toMatch(headerRegex);
-    const contentAfterHeader = changelog.replace(headerRegex, '').trim();
-    expect(contentAfterHeader).toBe('');
+    // v1.4.0_issue_target is a patch from v1.3.0_issue_base -> ## header
+    // Formatter returns Header + \n for empty body.
+    const expectedHeader = `## [1.4.0_issue_target](${GITHUB_REPO_URL}/compare/v1.3.0_issue_base...v1.4.0_issue_target) (${MOCK_DATE_STR})\n`;
+    expect(changelog).toBe(expectedHeader);
   });
 
   test('commitFilter allows commits that have no issue number (issue is null)', async () => {

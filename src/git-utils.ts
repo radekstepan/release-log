@@ -1,7 +1,7 @@
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
 import { ResolvedChangelogConfig, PreviousSemverTagsOptions, defaultTagFilter } from './config';
 
-interface SemVer {
+export interface SemVer {
   major: number;
   minor: number;
   patch: number;
@@ -9,7 +9,7 @@ interface SemVer {
   original: string;
 }
 
-function parseSemVer(tag: string): SemVer | null {
+export function parseSemVer(tag: string): SemVer | null {
   const semverRegex = /^(?:v)?(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/;
   const match = tag.match(semverRegex);
   if (!match) return null;

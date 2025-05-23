@@ -4,11 +4,29 @@ import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
 import { generateChangelog } from '../index';
 
+// Store original Date before mocking
+const ACTUAL_SYSTEM_DATE = global.Date;
+
 describe('Changelog Generation - Tag Filtering', () => {
   let tmpDir: string;
   const GITHUB_REPO_URL = 'https://github.com/test-org/test-repo';
-  const DATE_REGEX = `\\(\\d{4}-\\d{2}-\\d{2}\\)`;
+  const MOCK_DATE_STR = '2023-10-30';
+  const DATE_REGEX_ESCAPED = MOCK_DATE_STR.replace(/-/g, '\\-');
   const COMMIT_LINK_REGEX = `\\(\\[([a-f0-9]{7})\\]\\(${GITHUB_REPO_URL}/commit/\\1\\)\\)`;
+
+  beforeEach(() => {
+    jest.spyOn(global, 'Date').mockImplementation((...args: any[]) => {
+      if (args.length > 0) {
+        // @ts-ignore
+        return new ACTUAL_SYSTEM_DATE(...args);
+      }
+      return new ACTUAL_SYSTEM_DATE(`${MOCK_DATE_STR}T12:00:00.000Z`);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   const execInTmpDir = (command: string, silent = false): string => {
     try {
@@ -59,79 +77,68 @@ describe('Changelog Generation - Tag Filtering', () => {
     execInTmpDir('git config user.name "Test User"');
     execInTmpDir('git config user.email "test@example.com"');
 
-    // Full commit history setup
     createCommit('chore: Initial commit'); //0
     createCommit('feat: Add user authentication PROJ-123'); //1
-    execInTmpDir('git tag v0.1.0');
+    execInTmpDir('git tag v0.1.0'); 
 
     createCommit('fix: Fix login redirect PROJ-125'); //2
-    execInTmpDir('git tag v0.2.0');
+    execInTmpDir('git tag v0.2.0'); 
 
     createCommit('feat: Add password reset feature PROJ-127'); //3
-    execInTmpDir('git tag v0.2.1-schema'); // Ignored by default filter
+    execInTmpDir('git tag v0.2.1-schema'); 
     createCommit('fix: Fix URL parsing PROJ-129'); //4
-    execInTmpDir('git tag v0.3.0');
+    execInTmpDir('git tag v0.3.0'); 
     
     createCommit('feat(api)!: Introduce new API version BC-BANG-001'); //5
-    execInTmpDir('git tag v0.3.1');
+    execInTmpDir('git tag v0.3.1'); 
 
     createCommit('feat: Important feature JDTA-1'); //6
     createCommit('fix: Fix critical security issue PROJ-131'); //7
     createCommit('feat: Add new dashboard PROJ-132'); //8
     
-    execInTmpDir('git tag v0.4.0-beta'); // Kept by default, potentially filtered by custom
+    execInTmpDir('git tag v0.4.0-beta'); 
     createCommit('feat: Beta feature CF-001'); //9
-    execInTmpDir('git tag v0.4.0-rc'); // Kept by default
+    execInTmpDir('git tag v0.4.0-rc'); 
     createCommit('fix: RC fix CF-002'); //10
-    execInTmpDir('git tag v0.4.0-release'); // Kept by default
+    execInTmpDir('git tag v0.4.0-release'); 
     createCommit('feat: Another feature CF-003'); //11
-    execInTmpDir('git tag v0.5.0-experimental'); // Kept by default
+    execInTmpDir('git tag v0.5.0-experimental'); 
   });
 
   test('ignores schema tags for versioning (implicitly uses default tagFilter)', async () => {
-    // Default filter: latest tag is v0.5.0-experimental. Prev is v0.4.0-release.
-    // Commits between v0.4.0-release and v0.5.0-experimental: "Another feature CF-003" (commit 11)
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
     });
-    expect(changelog).toMatch(new RegExp(`^## \\[v0\\.5\\.0-experimental\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.v0\\.5\\.0-experimental\\) ${DATE_REGEX}`));
-    expect(changelog).toContain('### Features');
-    expect(changelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`^# \\[0\\.5\\.0-experimental\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.v0\\.5\\.0-experimental\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    expect(changelog).toContain('### Features\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}\n`));
     
     expect(changelog).not.toContain('v0.2.1-schema'); 
-    expect(changelog).not.toContain('Add password reset feature PROJ-127'); // This commit is before v0.3.0, associated with v0.2.1-schema if it weren't filtered
+    expect(changelog).not.toContain('Add password reset feature PROJ-127');
+    expect(changelog.endsWith('\n\n')).toBe(true);
   });
 
   test('uses custom tagFilter function to select specific tags', async () => {
     const customTagFilter = (tag: string): boolean => tag.endsWith('-release') || tag === 'v0.3.1' || tag === 'v0.3.0' || tag === 'v0.2.0';
-
-    // With this filter, valid tags (desc version sort): v0.4.0-release, v0.3.1, v0.3.0, v0.2.0
-    // Latest tag is v0.4.0-release. Previous tag is v0.3.1.
-    // Commits between v0.3.1 and v0.4.0-release:
-    // 6: feat: Important feature JDTA-1
-    // 7: fix: Fix critical security issue PROJ-131
-    // 8: feat: Add new dashboard PROJ-132
-    // 9: feat: Beta feature CF-001 (v0.4.0-beta is filtered out)
-    // 10: fix: RC fix CF-002 (v0.4.0-rc is filtered out)
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tagFilter: customTagFilter,
       githubRepoUrl: GITHUB_REPO_URL,
     });
 
-    expect(changelog).toMatch(new RegExp(`^## \\[v0\\.4\\.0-release\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-release\\) ${DATE_REGEX}`));
-    expect(changelog).toContain('### Features');
-    expect(changelog).toMatch(new RegExp(`\\* Important feature JDTA-1 ${COMMIT_LINK_REGEX}`));
-    expect(changelog).toMatch(new RegExp(`\\* Add new dashboard PROJ-132 ${COMMIT_LINK_REGEX}`));
-    expect(changelog).toMatch(new RegExp(`\\* Beta feature CF-001 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`^# \\[0\\.4\\.0-release\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-release\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    expect(changelog).toContain('### Features\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* Important feature JDTA-1 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* Add new dashboard PROJ-132 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* Beta feature CF-001 ${COMMIT_LINK_REGEX}\n`));
     
-    expect(changelog).toContain('### Bug Fixes');
-    expect(changelog).toMatch(new RegExp(`\\* Fix critical security issue PROJ-131 ${COMMIT_LINK_REGEX}`));
-    expect(changelog).toMatch(new RegExp(`\\* RC fix CF-002 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toContain('### Bug Fixes\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* Fix critical security issue PROJ-131 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* RC fix CF-002 ${COMMIT_LINK_REGEX}\n`));
 
-    expect(changelog).not.toContain('v0.5.0-experimental');
-    expect(changelog).not.toContain('v0.1.0'); // v0.1.0 is not included by this custom filter run
+    expect(changelog).not.toContain('0.5.0-experimental'); 
+    expect(changelog).not.toContain('0.1.0'); 
 
     const headBeforeCustomUnreleased = execInTmpDir('git rev-parse HEAD');
     createCommit('feat: Unreleased for custom filter CUST-UNRL-001', 'cust_unrl.js');
@@ -139,15 +146,14 @@ describe('Changelog Generation - Tag Filtering', () => {
     const unreleasedChangelog = await generateChangelog({
         repoPath: tmpDir,
         unreleased: true,
-        tagFilter: customTagFilter, // latest filtered tag is v0.4.0-release
+        tagFilter: customTagFilter, 
         githubRepoUrl: GITHUB_REPO_URL,
     });
-    // Commits after v0.4.0-release: "Another feature CF-003" (commit 11), CUST-UNRL-001
-    // (v0.5.0-experimental is filtered out by customTagFilter)
-    expect(unreleasedChangelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.HEAD\\) ${DATE_REGEX}`));
-    expect(unreleasedChangelog).toContain('### Features');
-    expect(unreleasedChangelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}`));
-    expect(unreleasedChangelog).toMatch(new RegExp(`\\* Unreleased for custom filter CUST-UNRL-001 ${COMMIT_LINK_REGEX}`));
+    expect(unreleasedChangelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    expect(unreleasedChangelog).toContain('### Features\n\n');
+    expect(unreleasedChangelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}\n`));
+    expect(unreleasedChangelog).toMatch(new RegExp(`\\* Unreleased for custom filter CUST-UNRL-001 ${COMMIT_LINK_REGEX}\n`));
+    expect(unreleasedChangelog.endsWith('\n\n')).toBe(true);
     
     execInTmpDir(`git reset --hard ${headBeforeCustomUnreleased}`, true);
   });

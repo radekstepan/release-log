@@ -4,11 +4,29 @@ import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
 import { generateChangelog, ChangelogConfig } from '../index';
 
+// Store original Date before mocking
+const ACTUAL_SYSTEM_DATE = global.Date;
+
 describe('Changelog Generation - Custom Commit Types', () => {
   let tmpDir: string;
   const GITHUB_REPO_URL = 'https://github.com/test-org/test-repo';
-  const DATE_REGEX = `\\(\\d{4}-\\d{2}-\\d{2}\\)`;
+  const MOCK_DATE_STR = '2023-10-28'; 
+  const DATE_REGEX_ESCAPED = MOCK_DATE_STR.replace(/-/g, '\\-');
   const COMMIT_LINK_REGEX = `\\(\\[([a-f0-9]{7})\\]\\(${GITHUB_REPO_URL}/commit/\\1\\)\\)`;
+
+  beforeEach(() => {
+    jest.spyOn(global, 'Date').mockImplementation((...args: any[]) => {
+      if (args.length > 0) {
+        // @ts-ignore
+        return new ACTUAL_SYSTEM_DATE(...args);
+      }
+      return new ACTUAL_SYSTEM_DATE(`${MOCK_DATE_STR}T12:00:00.000Z`);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   const execInTmpDir = (command: string, silent = false): string => {
     try {
@@ -59,9 +77,8 @@ describe('Changelog Generation - Custom Commit Types', () => {
     execInTmpDir('git config user.name "Test User"');
     execInTmpDir('git config user.email "test@example.com"');
     
-    // Base tag for unreleased custom types test
     createCommit('chore: Base for custom types test');
-    execInTmpDir('git tag v0.9.0-custom-base');
+    execInTmpDir('git tag v0.9.0-custom-base'); 
   });
 
   test('uses custom commit types, merging with defaults, and respects Angular preset formatting', async () => {
@@ -73,7 +90,7 @@ describe('Changelog Generation - Custom Commit Types', () => {
       unreleased: true, 
       commitTypes: {
         feat: 'Awesome New Features', 
-        improvement: 'Enhancements', // Custom type
+        improvement: 'Enhancements', 
       },
       githubRepoUrl: GITHUB_REPO_URL,
     };
@@ -85,19 +102,19 @@ describe('Changelog Generation - Custom Commit Types', () => {
     
     const changelog = await generateChangelog(customConfig);
 
-    expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.9\\.0-custom-base\\.\\.\\.HEAD\\) ${DATE_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.9\\.0-custom-base\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     
     expect(changelog).toContain('### Awesome New Features\n\n');
-    expect(changelog).toMatch(new RegExp(`\\* A super cool new thing! CSTM-001 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* A super cool new thing! CSTM-001 ${COMMIT_LINK_REGEX}\n`));
     
     expect(changelog).toContain('### Enhancements\n\n'); 
-    expect(changelog).toMatch(new RegExp(`\\* Made something better IMP-001 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* Made something better IMP-001 ${COMMIT_LINK_REGEX}\n`));
     
     expect(changelog).toContain('### Bug Fixes\n\n'); 
-    expect(changelog).toMatch(new RegExp(`\\* A normal fix \\(should use default title\\) FIX-002 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* A normal fix \\(should use default title\\) FIX-002 ${COMMIT_LINK_REGEX}\n`));
 
     expect(changelog).toContain('### Chores\n\n'); 
-    expect(changelog).toMatch(new RegExp(`\\* A chore for custom types test CSTM-CHR-01 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* A chore for custom types test CSTM-CHR-01 ${COMMIT_LINK_REGEX}\n`));
 
     const fixesIdx = changelog.indexOf('### Bug Fixes');
     const choresIdx = changelog.indexOf('### Chores');
@@ -109,16 +126,13 @@ describe('Changelog Generation - Custom Commit Types', () => {
     expect(awesomeIdx).toBeGreaterThan(-1);
     expect(enhanceIdx).toBeGreaterThan(-1);
 
-    // Standard sections order based on ANGULAR_PRESET_CATEGORY_TITLES_ORDER
-    expect(fixesIdx).toBeLessThan(choresIdx); // Bug Fixes before Chores
-
-    // Custom titled sections should appear after all standard sections
+    expect(fixesIdx).toBeLessThan(choresIdx); 
     expect(awesomeIdx).toBeGreaterThan(choresIdx); 
     expect(enhanceIdx).toBeGreaterThan(choresIdx); 
-    
-    // Custom titled sections should be sorted alphabetically
-    expect(awesomeIdx).toBeLessThan(enhanceIdx); // 'Awesome New Features' before 'Enhancements'
+    expect(awesomeIdx).toBeLessThan(enhanceIdx); 
 
-    execInTmpDir(`git reset --hard ${headBeforeTest}`, true); // Clean up commits made in this test
+    expect(changelog.endsWith('\n\n')).toBe(true);
+
+    execInTmpDir(`git reset --hard ${headBeforeTest}`, true); 
   });
 });
