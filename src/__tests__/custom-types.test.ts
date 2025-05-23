@@ -89,20 +89,21 @@ describe('Changelog Generation - Custom Commit Types', () => {
       tag: { from: 'v0.9.0-custom-base' }, 
       unreleased: true, 
       commitTypes: {
-        feat: 'Awesome New Features', 
-        improvement: 'Enhancements', 
+        feat: 'Awesome New Features', // This will be sorted as "Awesome New Features"
+        improvement: 'Enhancements', // This will be sorted as "Enhancements"
       },
       githubRepoUrl: GITHUB_REPO_URL,
     };
 
     createCommit('feat: A super cool new thing! CSTM-001', 'new_thing.js');
     createCommit('improvement: Made something better IMP-001', 'improvement.js');
-    createCommit('fix: A normal fix (should use default title) FIX-002', 'fix_normal.js');
-    createCommit('chore: A chore for custom types test CSTM-CHR-01', 'chore_file_custom.js');
+    createCommit('fix: A normal fix (should use default title) FIX-002', 'fix_normal.js'); // Default: "Bug Fixes"
+    createCommit('chore: A chore for custom types test CSTM-CHR-01', 'chore_file_custom.js'); // Default: "Chores"
     
     const changelog = await generateChangelog(customConfig);
 
-    expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.9\\.0-custom-base\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Header for unreleased section
+    expect(changelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.9\\.0-custom-base\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
     
     expect(changelog).toContain('### Awesome New Features\n\n');
     expect(changelog).toMatch(new RegExp(`\\* A super cool new thing! CSTM-001 ${COMMIT_LINK_REGEX}\n`));
@@ -116,20 +117,20 @@ describe('Changelog Generation - Custom Commit Types', () => {
     expect(changelog).toContain('### Chores\n\n'); 
     expect(changelog).toMatch(new RegExp(`\\* A chore for custom types test CSTM-CHR-01 ${COMMIT_LINK_REGEX}\n`));
 
-    const fixesIdx = changelog.indexOf('### Bug Fixes');
-    const choresIdx = changelog.indexOf('### Chores');
     const awesomeIdx = changelog.indexOf('### Awesome New Features');
+    const bugFixesIdx = changelog.indexOf('### Bug Fixes');
+    const choresIdx = changelog.indexOf('### Chores');
     const enhanceIdx = changelog.indexOf('### Enhancements');
 
-    expect(fixesIdx).toBeGreaterThan(-1);
-    expect(choresIdx).toBeGreaterThan(-1);
     expect(awesomeIdx).toBeGreaterThan(-1);
+    expect(bugFixesIdx).toBeGreaterThan(-1);
+    expect(choresIdx).toBeGreaterThan(-1);
     expect(enhanceIdx).toBeGreaterThan(-1);
 
-    expect(fixesIdx).toBeLessThan(choresIdx); 
-    expect(awesomeIdx).toBeGreaterThan(choresIdx); 
-    expect(enhanceIdx).toBeGreaterThan(choresIdx); 
-    expect(awesomeIdx).toBeLessThan(enhanceIdx); 
+    // Alphabetical order: Awesome, Bug Fixes, Chores, Enhancements
+    expect(awesomeIdx).toBeLessThan(bugFixesIdx);
+    expect(bugFixesIdx).toBeLessThan(choresIdx);
+    expect(choresIdx).toBeLessThan(enhanceIdx);
 
     expect(changelog.endsWith('\n\n')).toBe(true);
 

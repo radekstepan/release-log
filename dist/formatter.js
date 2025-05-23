@@ -1,21 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatChangelog = formatChangelog;
-const git_utils_1 = require("./git-utils"); // Import SemVer and parseSemVer
-// Order for sections based on conventional-changelog-angular preset
-const ANGULAR_PRESET_CATEGORY_TITLES_ORDER = [
-    'Features',
-    'Bug Fixes',
-    'Performance Improvements',
-    'Reverts',
-    'Documentation',
-    'Styles',
-    'Code Refactoring',
-    'Tests',
-    'Build System',
-    'CI',
-    'Chores',
-];
+const git_utils_1 = require("./git-utils");
 function getFormattedDate() {
     const d = new Date();
     const year = d.getFullYear();
@@ -58,7 +44,6 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
     let changelog = '';
     const baseUrl = config.githubRepoUrl ? (config.githubRepoUrl.endsWith('/') ? config.githubRepoUrl : config.githubRepoUrl + '/') : null;
     let displayVersion = currentTagForDisplay ? currentTagForDisplay.replace(/^v/, '') : null;
-    // const prevDisplayVersion = previousTagForCompare ? previousTagForCompare.replace(/^v/, '') : null; // Not directly used in header text
     const originalCurrentTag = currentTagForDisplay;
     const originalPreviousTag = previousTagForCompare;
     let headerDisplayPart;
@@ -80,10 +65,10 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
             }
         }
     }
-    else { // All commits, no tags (effectively "Unreleased" from the beginning or generic changelog)
+    else { // All commits, no tags
         headerDisplayPart = 'Changelog';
     }
-    changelog += `${headerLevel} ${headerDisplayPart} (${date})\n\n\n`; // Header + 2 blank lines
+    changelog += `${headerLevel} ${headerDisplayPart} (${date})\n\n`; // Header + 1 blank line (total 2 newlines before first section)
     const allCommits = Object.values(categories).flat();
     const breakingCommits = allCommits.filter(c => c.isExclamationBreaking || c.breakingNotes.length > 0);
     if (breakingCommits.length > 0) {
@@ -103,24 +88,10 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
                 });
             }
         });
-        changelog += '\n\n\n'; // 2 blank lines after section items
+        changelog += '\n'; // 1 blank line after section items (total 2 newlines before next section or end)
     }
-    const categoryOrderMap = ANGULAR_PRESET_CATEGORY_TITLES_ORDER.reduce((acc, title, index) => {
-        acc[title] = index;
-        return acc;
-    }, {});
     Object.keys(categories)
-        .sort((aTitle, bTitle) => {
-        const indexA = categoryOrderMap[aTitle];
-        const indexB = categoryOrderMap[bTitle];
-        if (indexA !== undefined && indexB !== undefined)
-            return indexA - indexB;
-        if (indexA !== undefined)
-            return -1; // Standard sections first
-        if (indexB !== undefined)
-            return 1; // Standard sections first
-        return aTitle.localeCompare(bTitle); // Custom sections alphabetically
-    })
+        .sort((aTitle, bTitle) => aTitle.localeCompare(bTitle)) // Sort alphabetically
         .forEach(categoryTitle => {
         if (categories[categoryTitle].length > 0) {
             changelog += `### ${categoryTitle}\n\n`; // Section title + 1 blank line
@@ -129,15 +100,19 @@ function formatChangelog(categories, currentTagForDisplay, previousTagForCompare
                 const commitLink = baseUrl ? `([${entry.hash}](${baseUrl}commit/${entry.hash}))` : `(${entry.hash})`;
                 changelog += `* ${scopeText}${entry.message} ${commitLink}\n`;
             });
-            changelog += '\n\n\n'; // 2 blank lines after section items
+            changelog += '\n'; // 1 blank line after section items (total 2 newlines before next section or end)
         }
     });
-    const headerEndIndex = changelog.indexOf('\n\n\n') + 3;
-    const bodyContent = changelog.substring(headerEndIndex).trim();
-    if (bodyContent.length > 0) {
-        return changelog.substring(0, headerEndIndex) + bodyContent + '\n\n';
+    // Consolidate multiple newlines at the end to ensure exactly two newlines if there's body content,
+    // or one newline if only header.
+    const headerPlusInitialNewlines = `${headerLevel} ${headerDisplayPart} (${date})\n`;
+    let bodyPart = changelog.substring(headerPlusInitialNewlines.length);
+    bodyPart = bodyPart.replace(/\n\n+/g, '\n\n').trimEnd(); // Replace 3+ newlines with 2, then trim any trailing
+    if (bodyPart.length > 0) {
+        return headerPlusInitialNewlines + '\n' + bodyPart + '\n\n';
     }
     else {
-        return `${headerLevel} ${headerDisplayPart} (${date})\n`;
+        // No body content, just the header.
+        return headerPlusInitialNewlines;
     }
 }

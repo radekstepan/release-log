@@ -17,9 +17,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
   const GITHUB_REPO_URL = 'https://github.com/test-org/test-repo';
   const MOCK_DATE_STR = '2023-10-27';
   const DATE_REGEX_ESCAPED = MOCK_DATE_STR.replace(/-/g, '\\-'); 
-  // Regex for the commit link part, capturing the hash
   const COMMIT_LINK_REGEX_CAPTURE = `\\(\\[([a-f0-9]{7})\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/commit/\\1\\)\\)`;
-  // Regex for asserting a commit link exists, without capturing (for simpler use in string building)
   const COMMIT_LINK_REGEX_ASSERT_EXISTS = `\\(\\[[a-f0-9]{7}\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/commit/[a-f0-9]{7}\\)\\)`;
 
 
@@ -134,49 +132,58 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     execInTmpDir('git tag v0.5.0-experimental'); 
   });
 
-  test('formats changelog for specific tag range (v0.2.0..v0.3.0) with Angular preset style', async () => {
+  test('formats changelog for specific tag range (v0.2.0..v0.3.0) with Angular preset style, alphabetical sections', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tag: { from: 'v0.2.0', to: 'v0.3.0' }, 
       githubRepoUrl: GITHUB_REPO_URL,
     });
     
-    expect(changelog).toMatch(new RegExp(`^# \\[0\\.3\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.2\\.0\\.\\.\\.v0\\.3\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Header is H1 for v0.3.0 (minor release from v0.2.0)
+    expect(changelog).toMatch(new RegExp(`^# \\[0\\.3\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.2\\.0\\.\\.\\.v0\\.3\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
     
+    // Sections should be alphabetical: Bug Fixes, Features, Performance Improvements
+    const bugFixesSectionRegex = new RegExp(
+      escapeRegExp(`### Bug Fixes\n\n`) +
+      escapeRegExp(`* Fix URL parsing PROJ-129 (#79) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`) // End of section: 2 newlines
+    );
+    expect(changelog).toMatch(bugFixesSectionRegex);
+
     const featuresSectionRegex = new RegExp(
       escapeRegExp(`### Features\n\n`) +
       escapeRegExp(`* Add password reset feature PROJ-127 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`* **email:** Add email templates PROJ-128 [WIP] `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`\n\n\n`) // Trailing newlines for the section
+      escapeRegExp(`* **email:** Add email templates PROJ-128 [WIP] `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`) // End of section: 2 newlines
     );
     expect(changelog).toMatch(featuresSectionRegex);
-
-    const bugFixesSectionRegex = new RegExp(
-      escapeRegExp(`### Bug Fixes\n\n`) +
-      escapeRegExp(`* Fix URL parsing PROJ-129 (#79) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`\n\n\n`)
-    );
-    expect(changelog).toMatch(bugFixesSectionRegex);
     
     const perfSectionRegex = new RegExp(
       escapeRegExp(`### Performance Improvements\n\n`) +
       escapeRegExp(`* Optimize database queries PROJ-130 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`)
-      // This is the last section, so it ends with \n\n
+      // This is the last section in this test case, so it ends with \n\n after body trim.
     );
     expect(changelog).toMatch(perfSectionRegex);
+    
+    // Check order
+    const bugFixesIdx = changelog.indexOf('### Bug Fixes');
+    const featuresIdx = changelog.indexOf('### Features');
+    const perfIdx = changelog.indexOf('### Performance Improvements');
+
+    expect(bugFixesIdx).toBeLessThan(featuresIdx);
+    expect(featuresIdx).toBeLessThan(perfIdx);
     
     expect(changelog).not.toContain('Fix login redirect PROJ-125'); 
     expect(changelog).not.toContain('BC-BANG-001'); 
     expect(changelog.endsWith('\n\n')).toBe(true);
   });
 
-  test('generates changelog with BREAKING CHANGES, section order, and formatting for v0.3.0..v0.3.1', async () => {
+  test('generates changelog with BREAKING CHANGES, alphabetical section order, and formatting for v0.3.0..v0.3.1', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tag: { from: 'v0.3.0', to: 'v0.3.1' }, 
       githubRepoUrl: GITHUB_REPO_URL,
     });
-    expect(changelog).toMatch(new RegExp(`^## \\[0\\.3\\.1\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Header is H2 for v0.3.1 (patch release from v0.3.0)
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.3\\.1\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
 
     const breakingSectionRegex = new RegExp(
       escapeRegExp(`### BREAKING CHANGES\n\n`) +
@@ -186,42 +193,39 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
       escapeRegExp(`  * See migration guide at https://example.com/migrate\n`) +
       escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) + 
       escapeRegExp(`  * The user profile layout has changed significantly. Users need to update their settings.\n`) +
-      escapeRegExp(`  * Another line for the note.\n`) +
-      escapeRegExp(`\n\n\n`)
+      escapeRegExp(`  * Another line for the note.\n\n`) // End of section: 2 newlines
     );
     expect(changelog).toMatch(breakingSectionRegex);
 
-    const featuresIndex = changelog.indexOf('### Features');
+    const breakingChangesIndex = changelog.indexOf('### BREAKING CHANGES');
     const bugFixesIndex = changelog.indexOf('### Bug Fixes');
+    const featuresIndex = changelog.indexOf('### Features');
     const perfIndex = changelog.indexOf('### Performance Improvements');
     const revertsIndex = changelog.indexOf('### Reverts');
-    const breakingChangesIndex = changelog.indexOf('### BREAKING CHANGES');
 
     expect(breakingChangesIndex).toBeGreaterThan(-1);
-    expect(featuresIndex).toBeGreaterThan(breakingChangesIndex);
-    expect(bugFixesIndex).toBeGreaterThan(featuresIndex);
-    expect(perfIndex).toBeGreaterThan(bugFixesIndex);
+    // Alphabetical order after BREAKING CHANGES: Bug Fixes, Features, Performance Improvements, Reverts
+    expect(bugFixesIndex).toBeGreaterThan(breakingChangesIndex);
+    expect(featuresIndex).toBeGreaterThan(bugFixesIndex);
+    expect(perfIndex).toBeGreaterThan(featuresIndex);
     expect(revertsIndex).toBeGreaterThan(perfIndex);
+    
+    const bugFixesSectionRegex = new RegExp(
+      escapeRegExp(`### Bug Fixes\n\n`) +
+      escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
+    );
+    expect(changelog).toMatch(bugFixesSectionRegex);
     
     const featuresSectionRegex = new RegExp(
       escapeRegExp(`### Features\n\n`) +
       escapeRegExp(`* **api:** Introduce new API version, old one deprecated BC-BANG-001 (#80) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`* **module:** Complete rewrite of module X BC-BOTH-001 (#81) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`\n\n\n`)
+      escapeRegExp(`* **module:** Complete rewrite of module X BC-BOTH-001 (#81) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
     );
     expect(changelog).toMatch(featuresSectionRegex);
-    
-    const bugFixesSectionRegex = new RegExp(
-      escapeRegExp(`### Bug Fixes\n\n`) +
-      escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`\n\n\n`)
-    );
-    expect(changelog).toMatch(bugFixesSectionRegex);
 
     const perfSectionRegex = new RegExp(
       escapeRegExp(`### Performance Improvements\n\n`) +
-      escapeRegExp(`* **db:** Optimize another user query PERF-002 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`\n\n\n`)
+      escapeRegExp(`* **db:** Optimize another user query PERF-002 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
     );
     expect(changelog).toMatch(perfSectionRegex);
 
@@ -234,41 +238,55 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(changelog.endsWith('\n\n')).toBe(true);
   });
 
-  test('formats release header with tree link for the first tag (v0.1.0)', async () => {
+  test('formats release header with tree link for the first tag (v0.1.0), alphabetical sections', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
       tag: 'v0.1.0', 
       githubRepoUrl: GITHUB_REPO_URL,
     });
-    expect(changelog).toMatch(new RegExp(`^# \\[0\\.1\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/tree/v0\\.1\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Header is H1 for v0.1.0 (first release)
+    expect(changelog).toMatch(new RegExp(`^# \\[0\\.1\\.0\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/tree/v0\\.1\\.0\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
     
+    // Alphabetical: Chores, Features
+    const choresSectionRegex = new RegExp(
+      escapeRegExp(`### Chores\n\n`) +
+      escapeRegExp(`* Initial commit `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n\n`)
+    );
+    expect(changelog).toMatch(choresSectionRegex);
+
     const featuresSectionRegex = new RegExp(
       escapeRegExp(`### Features\n\n`) +
       escapeRegExp(`* Add user authentication `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
       escapeRegExp(`* **api:** Add user endpoints PROJ-123 (#77) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`* **ui:** Implement login form PROJ-124 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`\n\n\n`)
+      escapeRegExp(`* **ui:** Implement login form PROJ-124 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`)
     );
     expect(changelog).toMatch(featuresSectionRegex);
     
-    const choresSectionRegex = new RegExp(
-      escapeRegExp(`### Chores\n\n`) +
-      escapeRegExp(`* Initial commit `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`)
-    );
-    expect(changelog).toMatch(choresSectionRegex);
+    const choresIdx = changelog.indexOf('### Chores');
+    const featuresIdx = changelog.indexOf('### Features');
+    expect(choresIdx).toBeLessThan(featuresIdx);
 
     expect(changelog).not.toContain('Fix login redirect PROJ-125');
     expect(changelog.endsWith('\n\n')).toBe(true);
   });
 
-  test('generates changelog for v0.4.0-beta and ensures multiple JIRA commits appear', async () => {
+  test('generates changelog for v0.4.0-beta and ensures multiple JIRA commits appear, alphabetical sections', async () => {
     const changelog = await generateChangelog({
       repoPath: tmpDir,
-      tag: 'v0.4.0-beta', // This implies range v0.3.1...v0.4.0-beta
+      tag: 'v0.4.0-beta', 
       githubRepoUrl: GITHUB_REPO_URL,
     });
 
-    expect(changelog).toMatch(new RegExp(`^## \\[0\\.4\\.0-beta\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-beta\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Header is H2 for v0.4.0-beta (pre-release)
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.4\\.0-beta\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-beta\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n`));
+
+    // Alphabetical order: Bug Fixes, Chores, Features
+    const bugFixesIndex = changelog.indexOf('### Bug Fixes');
+    const choresIndex = changelog.indexOf('### Chores');
+    const featuresIndex = changelog.indexOf('### Features');
+
+    expect(bugFixesIndex).toBeLessThan(choresIndex);
+    expect(choresIndex).toBeLessThan(featuresIndex);
 
     // Features
     expect(changelog).toContain('### Features\n\n');
@@ -286,9 +304,9 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(changelog).toMatch(new RegExp(escapeRegExp('* Setup for JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
     
     // Ensure order within sections (example for Bug Fixes)
-    const bugFixesSection = changelog.substring(changelog.indexOf('### Bug Fixes'));
-    expect(bugFixesSection.indexOf('Bugfix for JDTA-1')).toBeLessThan(bugFixesSection.indexOf('Fix critical security issue PROJ-131'));
-    expect(bugFixesSection.indexOf('Fix critical security issue PROJ-131')).toBeLessThan(bugFixesSection.indexOf('Address security vulnerability PROJ-131 (follow-up)'));
+    const bugFixesSectionContent = changelog.substring(changelog.indexOf('### Bug Fixes'));
+    expect(bugFixesSectionContent.indexOf('Bugfix for JDTA-1')).toBeLessThan(bugFixesSectionContent.indexOf('Fix critical security issue PROJ-131'));
+    expect(bugFixesSectionContent.indexOf('Fix critical security issue PROJ-131')).toBeLessThan(bugFixesSectionContent.indexOf('Address security vulnerability PROJ-131 (follow-up)'));
 
     expect(changelog.endsWith('\n\n')).toBe(true);
   });
