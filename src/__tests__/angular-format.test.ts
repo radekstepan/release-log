@@ -61,27 +61,27 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
 
     createCommit('chore: Initial commit', '# Test Repository'); //0
     createCommit('feat: Add user authentication', 'Auth feature', 'auth.js'); //1
-    createCommit('feat(api): Add user endpoints PROJ-123', 'User API', 'api.js'); //2
+    createCommit('feat(api): Add user endpoints PROJ-123 (#77)', 'User API', 'api.js'); //2 - Added issue number
     createCommit('feat(ui): Implement login form PROJ-124', 'Login UI', 'login.js'); //3
     execInTmpDir('git tag v0.1.0');
 
     createCommit('fix: Fix login redirect PROJ-125', 'Login fix', 'auth.js'); //4
-    createCommit('fix(api): Fix authentication token validation PROJ-126', 'Token fix', 'api.js'); //5
+    createCommit('fix(api): Fix authentication token validation PROJ-126 (#78)', 'Token fix', 'api.js'); //5 - Added issue number
     createCommit('docs: Update README with setup instructions', 'README update', 'README.md'); //6
     execInTmpDir('git tag v0.2.0');
 
     createCommit('feat: Add password reset feature PROJ-127', 'Password reset', 'reset.js'); //7
     createCommit('feat(email): Add email templates PROJ-128 [WIP]', 'Email templates', 'emails/'); //8
     execInTmpDir('git tag v0.2.1-schema');
-    createCommit('fix: Fix URL parsing PROJ-129', 'URL parsing fix', 'router.js'); //9
+    createCommit('fix: Fix URL parsing PROJ-129 (#79)', 'URL parsing fix', 'router.js'); //9 - Added issue number
     createCommit('perf: Optimize database queries PROJ-130', 'DB optimization', 'db.js'); //10
     execInTmpDir('git tag v0.3.0');
 
-    createCommit('feat(api)!: Introduce new API version, old one deprecated BC-BANG-001', 'api_v2.js'); // 11
+    createCommit('feat(api)!: Introduce new API version, old one deprecated BC-BANG-001 (#80)', 'api_v2.js'); // 11 - Added issue number
     createCommit('fix(ui): Adjust layout due to API changes BC-NOTE-001\n\nBREAKING CHANGE: The user profile layout has changed significantly. Users need to update their settings.\nAnother line for the note.', 'ui_bc_note.js'); // 12
     createCommit('perf(db): Optimize another user query PERF-002', 'db_perf2.js'); // 13
     createCommit('revert: Revert "feat: Add password reset feature PROJ-127" RVT-001\n\nThis reverts commit abc123xyz.', 'revert_reset.js'); // 14
-    createCommit('feat(module)!: Complete rewrite of module X BC-BOTH-001\n\nBREAKING CHANGE: Module X API is entirely new.\n\nSee migration guide at https://example.com/migrate', 'module_x_rewrite.js'); //15
+    createCommit('feat(module)!: Complete rewrite of module X BC-BOTH-001 (#81)\n\nBREAKING CHANGE: Module X API is entirely new.\n\nSee migration guide at https://example.com/migrate', 'module_x_rewrite.js'); //15 - Added issue number
     execInTmpDir('git tag v0.3.1');
 
     createCommit('feat: Important feature JDTA-1', 'first commit JDTA-1', 'jira_a1.js'); //16
@@ -114,7 +114,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(changelog).toMatch(new RegExp(`\\* \\*\\*email:\\*\\* Add email templates PROJ-128 \\[WIP\\] ${COMMIT_LINK_REGEX}`)); // commit 8
     
     expect(changelog).toContain('### Bug Fixes\n\n');
-    expect(changelog).toMatch(new RegExp(`\\* Fix URL parsing PROJ-129 ${COMMIT_LINK_REGEX}`)); // commit 9
+    expect(changelog).toMatch(new RegExp(`\\* Fix URL parsing PROJ-129 \\(#79\\) ${COMMIT_LINK_REGEX}`)); // commit 9 - issue num in subject
     
     expect(changelog).toContain('### Performance Improvements\n\n');
     expect(changelog).toMatch(new RegExp(`\\* Optimize database queries PROJ-130 ${COMMIT_LINK_REGEX}`)); // commit 10
@@ -133,11 +133,11 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(changelog).toMatch(new RegExp(`^## \\[v0\\.3\\.1\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) ${DATE_REGEX}`));
 
     expect(changelog).toContain('### BREAKING CHANGES\n\n');
-    expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Introduce new API version, old one deprecated BC-BANG-001 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Introduce new API version, old one deprecated BC-BANG-001 \\(#80\\) ${COMMIT_LINK_REGEX}`));
     expect(changelog).toMatch(new RegExp(`\\* \\*\\*ui:\\*\\* Adjust layout due to API changes BC-NOTE-001 ${COMMIT_LINK_REGEX}\n` +
                                        `  \\* The user profile layout has changed significantly\\. Users need to update their settings\\.\n` +
                                        `  \\* Another line for the note\\.`, 'm'));
-    expect(changelog).toMatch(new RegExp(`\\* \\*\\*module:\\*\\* Complete rewrite of module X BC-BOTH-001 ${COMMIT_LINK_REGEX}\n` +
+    expect(changelog).toMatch(new RegExp(`\\* \\*\\*module:\\*\\* Complete rewrite of module X BC-BOTH-001 \\(#81\\) ${COMMIT_LINK_REGEX}\n` +
                                        `  \\* Module X API is entirely new\\.\n` +
                                        `  \\* See migration guide at https://example.com/migrate`, 'm'));
 
@@ -154,8 +154,8 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(revertsIndex).toBeGreaterThan(perfIndex);
 
     expect(changelog).toContain('### Features\n\n');
-    expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Introduce new API version, old one deprecated BC-BANG-001 ${COMMIT_LINK_REGEX}`));
-    expect(changelog).toMatch(new RegExp(`\\* \\*\\*module:\\*\\* Complete rewrite of module X BC-BOTH-001 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Introduce new API version, old one deprecated BC-BANG-001 \\(#80\\) ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* \\*\\*module:\\*\\* Complete rewrite of module X BC-BOTH-001 \\(#81\\) ${COMMIT_LINK_REGEX}`));
     
     expect(changelog).toContain('### Bug Fixes\n\n');
     expect(changelog).toMatch(new RegExp(`\\* \\*\\*ui:\\*\\* Adjust layout due to API changes BC-NOTE-001 ${COMMIT_LINK_REGEX}`));
@@ -177,7 +177,7 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     expect(changelog).toMatch(new RegExp(`^## \\[v0\\.1\\.0\\]\\(${GITHUB_REPO_URL}/tree/v0\\.1\\.0\\) ${DATE_REGEX}`));
     expect(changelog).toContain('### Features\n\n');
     expect(changelog).toMatch(new RegExp(`\\* Add user authentication ${COMMIT_LINK_REGEX}`));
-    expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Add user endpoints PROJ-123 ${COMMIT_LINK_REGEX}`));
+    expect(changelog).toMatch(new RegExp(`\\* \\*\\*api:\\*\\* Add user endpoints PROJ-123 \\(#77\\) ${COMMIT_LINK_REGEX}`));
     expect(changelog).toMatch(new RegExp(`\\* \\*\\*ui:\\*\\* Implement login form PROJ-124 ${COMMIT_LINK_REGEX}`));
     expect(changelog).toContain('### Chores\n\n');
     expect(changelog).toMatch(new RegExp(`\\* Initial commit ${COMMIT_LINK_REGEX}`));

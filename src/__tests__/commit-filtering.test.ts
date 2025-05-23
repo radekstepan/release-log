@@ -3,6 +3,40 @@ import path from 'path';
 import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
 import { generateChangelog, CommitEntry } from '../index';
+import { extractIssueNumber } from '../commit-parser'; // Import for unit testing
+
+describe('Commit Parser Utilities', () => {
+  describe('extractIssueNumber', () => {
+    it('should extract issue number if present in subject', () => {
+      expect(extractIssueNumber('feat: new feature (#123)')).toBe('123');
+    });
+    it('should extract issue number from commit body', () => {
+      expect(extractIssueNumber('feat: new feature\n\nCloses (#456)')).toBe('456');
+    });
+    it('should extract issue number when Jira ID is also present', () => {
+      expect(extractIssueNumber('feat: new feature PROJ-123 (#123)')).toBe('123');
+      expect(extractIssueNumber('feat: new feature (#123) PROJ-123')).toBe('123');
+    });
+    it('should return null if no issue number is present', () => {
+      expect(extractIssueNumber('feat: new feature')).toBeNull();
+    });
+    it('should handle multiple parentheses correctly, extracting the issue pattern', () => {
+      expect(extractIssueNumber('feat: (new) feature (#789)')).toBe('789');
+    });
+    it('should only extract the first issue number if multiple are present', () => {
+      expect(extractIssueNumber('feat: new feature (#123) and (#456)')).toBe('123');
+    });
+    it('should return null if pattern is similar but not exact (e.g. no #)', () => {
+      expect(extractIssueNumber('feat: new feature (123)')).toBeNull();
+    });
+    it('should return null if pattern is similar but not exact (e.g. no parens)', () => {
+      expect(extractIssueNumber('feat: new feature #123')).toBeNull();
+    });
+    it('should return null for empty message', () => {
+      expect(extractIssueNumber('')).toBeNull();
+    });
+  });
+});
 
 describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
   let tmpDir: string;
@@ -74,6 +108,15 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     createCommit('fix: Bugfix for JDTA-1', 'fix commit for JDTA-1', 'jira_a3.js'); //6
     createCommit('feat: Another feature unrelated OTHER-100', 'unrelated'); //7
     execInTmpDir('git tag v1.2.0_jira_target');
+
+    // Commits for issue number filtering tests
+    execInTmpDir('git tag v1.3.0_issue_base'); // Base for issue tests
+    createCommit('feat: Feature with issue (#101) PROJ-C1', 'content for issue 101'); //8
+    createCommit('fix: Fix without issue PROJ-C2', 'content for no issue'); //9
+    createCommit('feat: Feature with different issue (#202) PROJ-C3', 'content for issue 202'); //10
+    createCommit('chore: Chore with issue (#101) PROJ-C4', 'chore for issue 101'); //11
+    createCommit('docs: Docs update with issue in body\n\nThis relates to (#303)', 'docs for issue 303'); //12
+    execInTmpDir('git tag v1.4.0_issue_target'); // Target for issue tests
   });
 
   test('filters out commits based on type using commitFilter', async () => {
@@ -165,5 +208,70 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
       expect(changelog).not.toContain('Important feature JDTA-1');
       expect(changelog).not.toContain('Setup for JDTA-1');
       expect(changelog).toContain('Bugfix for JDTA-1');
+  });
+
+  test('filters commits based on specific issue number using commitFilter', async () => {
+    const commitFilter = (commit: CommitEntry) => commit.issue === '101';
+    const changelog = await generateChangelog({
+      repoPath: tmpDir,
+      tag: { from: 'v1.3.0_issue_base', to: 'v1.4.0_issue_target' },
+      commitFilter,
+      githubRepoUrl: GITHUB_REPO_URL,
+    });
+
+    expect(changelog).toContain('Feature with issue (#101) PROJ-C1');
+    expect(changelog).toContain('Chore with issue (#101) PROJ-C4');
+    expect(changelog).not.toContain('Fix without issue PROJ-C2');
+    expect(changelog).not.toContain('Feature with different issue (#202) PROJ-C3');
+    expect(changelog).not.toContain('Docs update with issue in body');
+  });
+
+  test('filters commits based on issue number present in body using commitFilter', async () => {
+    const commitFilter = (commit: CommitEntry) => commit.issue === '303';
+    const changelog = await generateChangelog({
+      repoPath: tmpDir,
+      tag: { from: 'v1.3.0_issue_base', to: 'v1.4.0_issue_target' },
+      commitFilter,
+      githubRepoUrl: GITHUB_REPO_URL,
+    });
+    expect(changelog).toContain('Docs update with issue in body');
+    expect(changelog).not.toContain('Feature with issue (#101) PROJ-C1');
+  });
+
+  test('commitFilter using non-existent issue number results in no matching commits from range', async () => {
+    const commitFilter = (commit: CommitEntry) => commit.issue === '999';
+    const changelog = await generateChangelog({
+      repoPath: tmpDir,
+      tag: { from: 'v1.3.0_issue_base', to: 'v1.4.0_issue_target' },
+      commitFilter,
+      githubRepoUrl: GITHUB_REPO_URL,
+    });
+
+    expect(changelog).not.toContain('Feature with issue (#101) PROJ-C1');
+    expect(changelog).not.toContain('Fix without issue PROJ-C2');
+    expect(changelog).not.toContain('Feature with different issue (#202) PROJ-C3');
+    expect(changelog).not.toContain('Chore with issue (#101) PROJ-C4');
+    expect(changelog).not.toContain('Docs update with issue in body');
+    
+    // Check that the changelog is essentially empty of commits from this range
+    const headerRegex = new RegExp(`^## \\[v1\\.4\\.0_issue_target\\]\\(${GITHUB_REPO_URL}/compare/v1\\.3\\.0_issue_base\\.\\.\\.v1\\.4\\.0_issue_target\\) ${DATE_REGEX}`);
+    expect(changelog).toMatch(headerRegex);
+    const contentAfterHeader = changelog.replace(headerRegex, '').trim();
+    expect(contentAfterHeader).toBe('');
+  });
+
+  test('commitFilter allows commits that have no issue number (issue is null)', async () => {
+    const commitFilter = (commit: CommitEntry) => commit.issue === null;
+    const changelog = await generateChangelog({
+      repoPath: tmpDir,
+      tag: { from: 'v1.3.0_issue_base', to: 'v1.4.0_issue_target' },
+      commitFilter,
+      githubRepoUrl: GITHUB_REPO_URL,
+    });
+    expect(changelog).toContain('Fix without issue PROJ-C2');
+    expect(changelog).not.toContain('Feature with issue (#101) PROJ-C1');
+    expect(changelog).not.toContain('Feature with different issue (#202) PROJ-C3');
+    expect(changelog).not.toContain('Chore with issue (#101) PROJ-C4');
+    expect(changelog).not.toContain('Docs update with issue in body');
   });
 });

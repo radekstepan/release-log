@@ -7,6 +7,7 @@ export interface CommitEntry {
   message: string; // Potentially modified subject (e.g. with JIRA ID)
   scope?: string;
   jiraTicket: string | null;
+  issue: string | null; // Extracted issue number, e.g., "123" from "(#123)"
   type: string;
   isExclamationBreaking: boolean;
   breakingNotes: string[];
@@ -17,6 +18,11 @@ export type ParsedCommits = Record<string, CommitEntry[]>;
 export function extractJiraTicket(message: string): string | null {
   const jiraMatch = message.match(/([A-Z][A-Z0-9]*-\d+)/i);
   return jiraMatch ? jiraMatch[1].toUpperCase() : null;
+}
+
+export function extractIssueNumber(message: string): string | null {
+  const issueMatch = message.match(/\(#(\d+)\)/);
+  return issueMatch ? issueMatch[1] : null;
 }
 
 export function parseCommits(range: string | null, config: ResolvedChangelogConfig): ParsedCommits {
@@ -67,6 +73,7 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
     const fullMessage = subjectLine + (body ? '\n' + body : '');
 
     const jiraTicket = extractJiraTicket(fullMessage);
+    const issue = extractIssueNumber(fullMessage);
     const subjectMatch = subjectLine.match(/^(\w+)(?:\(([^)]+)\))?(!?):\s+(.*)$/);
 
     if (subjectMatch) {
@@ -83,6 +90,7 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
                      : messageText,
           scope: scope || undefined,
           jiraTicket,
+          issue,
           type,
           isExclamationBreaking: breakingMarker === '!',
           breakingNotes: [] 

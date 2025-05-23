@@ -23,6 +23,7 @@ It also provides utility functions for working with git tags.
     *   Automatically extracts JIRA ticket IDs (e.g., `PROJ-123`) from commit messages.
     *   Appends JIRA ID to commit messages in the changelog if not already present.
     *   Deduplicates entries based on JIRA ticket ID, keeping the message from the oldest *kept* commit for that ticket (respecting `commitFilter`).
+*   **Issue Number Extraction:** Extracts issue numbers (e.g., `123` from `(#123)`) from commit messages into the `CommitEntry.issue` field.
 *   **GitHub Integration:** Generates links to commits, tags, and comparisons if a `githubRepoUrl` is provided for changelog generation.
 *   **File Operations:**
     *   Optionally save the generated changelog to a file.
@@ -114,10 +115,17 @@ async function updateMyChangelog() {
         if (commit.subject.includes('[WIP]')) {
           return false;
         }
-        // Example: Exclude 'chore' type commits unless they are breaking
-        if (commit.type === 'chore' && !commit.isExclamationBreaking && commit.breakingNotes.length === 0) {
+        // Example: Exclude 'chore' type commits unless they are breaking or related to issue #789
+        if (commit.type === 'chore' && 
+            !commit.isExclamationBreaking && 
+            commit.breakingNotes.length === 0 &&
+            commit.issue !== '789') {
           return false;
         }
+        // Example: Only include commits related to a JIRA ticket or a specific issue number
+        // if (!commit.jiraTicket && commit.issue !== '123') {
+        //   return false;
+        // }
         return true;
       }
     };
@@ -206,6 +214,7 @@ interface CommitEntry {
   message: string;              // Subject line, potentially with JIRA ID appended if not originally present
   scope?: string;               // Parsed scope, if any
   jiraTicket: string | null;    // Extracted JIRA ticket ID (e.g., "PROJ-123")
+  issue: string | null;          // Extracted issue number (e.g., "123" from "(#123)")
   type: string;                 // Conventional commit type (e.g., "feat", "fix")
   isExclamationBreaking: boolean; // True if "!" was used for breaking change
   breakingNotes: string[];      // Array of breaking change notes from footers
@@ -225,11 +234,12 @@ A typical commit message looks like:
 [optional footer(s)]
 ```
 A `!` after the type/scope indicates a breaking change. Alternatively, a footer starting with `BREAKING CHANGE:` (or `BREAKING-CHANGE:`) also indicates a breaking change.
+Issue numbers can be included in the description or body, typically as `(#123)`.
 
 Example:
-`feat(api)!: add new endpoint for user profiles PROJ-456`
+`feat(api)!: add new endpoint for user profiles PROJ-456 (#101)`
 `fix: correct calculation error in payment module JIRA-123`
-`refactor(core): simplify internal data structures\n\nBREAKING CHANGE: The `Widget` class constructor now takes an options object.`
+`refactor(core): simplify internal data structures\n\nBREAKING CHANGE: The \`Widget\` class constructor now takes an options object. See issue (#205).`
 
 ## Default Commit Types & Section Titles (Angular Preset)
 
