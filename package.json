@@ -1,13 +1,12 @@
 {
   "name": "release-log",
-  "version": "1.8.3",
+  "version": "1.8.4",
   "description": "A library to programmatically generate changelogs from git history and conventional commits.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "jest",
-    "build": "tsc",
-    "postinstall": "yarn run build"
+    "build": "tsc"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -22,7 +21,7 @@
   },
   "license": "UNLICENSED",
   "files": [
-    "dist/**/*",
+    "src/**/*",
     "package.json",
     "tsconfig.json",
     "README.md"

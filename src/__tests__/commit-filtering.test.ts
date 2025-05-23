@@ -133,6 +133,14 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     createCommit('chore: Chore with issue (#101) PROJ-C4', 'chore for issue 101'); //11
     createCommit('docs: Docs update with issue in body\n\nThis relates to (#303)', 'docs for issue 303'); //12
     execInTmpDir('git tag v1.4.0_issue_target'); 
+
+    // For JIRA non-deduplication test
+    execInTmpDir('git tag v2.0.0_dedupe_base_cf');
+    createCommit('feat: First part of STORY-123', 'feat story 123', 'story_f1.js');
+    createCommit('fix: Second part of STORY-123', 'fix story 123', 'story_f2.js');
+    createCommit('chore: Third part of STORY-123', 'chore story 123', 'story_f3.js');
+    createCommit('feat: A completely different feature NOSTORY-001', 'nostory feat', 'nostory.js');
+    execInTmpDir('git tag v2.1.0_dedupe_target_cf');
   });
 
   test('filters out commits based on type using commitFilter', async () => {
@@ -172,10 +180,11 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     expect(changelog).toContain('A chore to be filtered PROJ-A3');
   });
 
-  test('commitFilter interacts correctly with JIRA deduplication', async () => {
+  test('commitFilter interacts correctly when JIRA tickets are involved (no more deduplication)', async () => {
     const commitFilter = (commit: CommitEntry) => {
       if (commit.jiraTicket === 'JDTA-1') {
-        return commit.type === 'fix';
+        // This filter will remove the 'feat' and 'chore' for JDTA-1
+        return commit.type === 'fix'; 
       }
       return true;
     };
@@ -187,14 +196,15 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
       githubRepoUrl: GITHUB_REPO_URL,
     });
     
-    expect(changelog).not.toContain('Important feature JDTA-1');
-    expect(changelog).not.toContain('Setup for JDTA-1');      
-    expect(changelog).toContain('Bugfix for JDTA-1'); 
+    expect(changelog).not.toContain('Important feature JDTA-1'); // Filtered out
+    expect(changelog).not.toContain('Setup for JDTA-1');      // Filtered out
+    expect(changelog).toContain('Bugfix for JDTA-1'); // Kept by filter
     expect(changelog).toContain('Another feature unrelated OTHER-100'); 
   });
 
-   test('JIRA deduplication: if first commit for a JIRA ID is filtered, subsequent non-filtered one is kept', async () => {
+   test('JIRA behavior: if a commit for a JIRA ID is filtered, subsequent non-filtered ones for same JIRA ID are still processed independently', async () => {
       const commitFilter = (commit: CommitEntry) => {
+          // Filter out the 'feat' and 'chore' types for JDTA-1
           if (commit.jiraTicket === 'JDTA-1' && (commit.type === 'feat' || commit.type === 'chore')) {
               return false; 
           }
@@ -208,10 +218,36 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
           githubRepoUrl: GITHUB_REPO_URL,
       });
 
-      expect(changelog).not.toContain('Important feature JDTA-1');
-      expect(changelog).not.toContain('Setup for JDTA-1');
-      expect(changelog).toContain('Bugfix for JDTA-1');
+      expect(changelog).not.toContain('Important feature JDTA-1'); // Filtered out
+      expect(changelog).not.toContain('Setup for JDTA-1'); // Filtered out
+      expect(changelog).toContain('Bugfix for JDTA-1'); // Kept by filter
   });
+
+  test('includes multiple commits with the same JIRA ID if not filtered out', async () => {
+    const changelog = await generateChangelog({
+      repoPath: tmpDir,
+      tag: { from: 'v2.0.0_dedupe_base_cf', to: 'v2.1.0_dedupe_target_cf' },
+      // No commitFilter, or a commitFilter that keeps them all
+      githubRepoUrl: GITHUB_REPO_URL,
+    });
+
+    // Header for the release
+    expect(changelog).toMatch(new RegExp(`^## \\[2\\.1\\.0_dedupe_target_cf\\]\\(${GITHUB_REPO_URL}/compare/v2\\.0\\.0_dedupe_base_cf\\.\\.\\.v2\\.1\\.0_dedupe_target_cf\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+
+    // Check Features
+    expect(changelog).toContain('### Features\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* First part of STORY-123 ${COMMIT_LINK_REGEX}\n`));
+    expect(changelog).toMatch(new RegExp(`\\* A completely different feature NOSTORY-001 ${COMMIT_LINK_REGEX}\n`));
+
+    // Check Bug Fixes
+    expect(changelog).toContain('### Bug Fixes\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* Second part of STORY-123 ${COMMIT_LINK_REGEX}\n`));
+    
+    // Check Chores
+    expect(changelog).toContain('### Chores\n\n');
+    expect(changelog).toMatch(new RegExp(`\\* Third part of STORY-123 ${COMMIT_LINK_REGEX}\n`));
+  });
+
 
   test('filters commits based on specific issue number using commitFilter', async () => {
     const commitFilter = (commit: CommitEntry) => commit.issue === '101';
@@ -256,9 +292,6 @@ describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
     expect(changelog).not.toContain('Chore with issue (#101) PROJ-C4');
     expect(changelog).not.toContain('Docs update with issue in body');
     
-    // Check that the changelog is essentially empty of commits from this range
-    // v1.4.0_issue_target is a patch from v1.3.0_issue_base -> ## header
-    // Formatter returns Header + \n for empty body.
     const expectedHeader = `## [1.4.0_issue_target](${GITHUB_REPO_URL}/compare/v1.3.0_issue_base...v1.4.0_issue_target) (${MOCK_DATE_STR})\n`;
     expect(changelog).toBe(expectedHeader);
   });

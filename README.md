@@ -22,7 +22,7 @@ It also provides utility functions for working with git tags.
 *   **JIRA Integration:**
     *   Automatically extracts JIRA ticket IDs (e.g., `PROJ-123`) from commit messages.
     *   Appends JIRA ID to commit messages in the changelog if not already present.
-    *   Deduplicates entries based on JIRA ticket ID, keeping the message from the oldest *kept* commit for that ticket (respecting `commitFilter`).
+    *   Includes all relevant commits, even if multiple commits share the same JIRA ticket ID within a release (respecting `commitFilter`).
 *   **Issue Number Extraction:** Extracts issue numbers (e.g., `123` from `(#123)`) from commit messages into the `CommitEntry.issue` field.
 *   **GitHub Integration:** Generates links to commits, tags, and comparisons if a `githubRepoUrl` is provided for changelog generation.
 *   **File Operations:**
@@ -204,7 +204,7 @@ The `generateChangelog` function accepts an options object (`ChangelogConfig`) w
 | `commitTypes`   | `Record<string, string>`                           | See [Default Commit Types](#default-commit-types)            | Custom mapping of commit type prefixes (e.g., 'feat', 'fix') to section titles (e.g., 'New Features', 'Bug Fixes'). Merged with defaults, custom values override. Custom-titled sections are sorted alphabetically after standard sections. |
 | `githubRepoUrl` | `string \| null`                                   | `null`                                                       | Base URL of the GitHub repository (e.g., "https://github.com/owner/repo") to generate links for commit hashes, tags, and comparisons. If `null`, links are not generated.                    |
 | `tagFilter`     | `(tag: string) => boolean`                         | `(tag) => tag && !tag.endsWith('-schema')`                   | A function that receives a tag string and returns `true` if the tag should be included in versioning, `false` otherwise.                                             |
-| `commitFilter`  | `(commit: CommitEntry) => boolean`                 | `(_commit) => true`                                          | A function that receives a parsed `CommitEntry` object and returns `true` if the commit should be included in the changelog, `false` otherwise. Executed after parsing but before JIRA deduplication and categorization. |
+| `commitFilter`  | `(commit: CommitEntry) => boolean`                 | `(_commit) => true`                                          | A function that receives a parsed `CommitEntry` object and returns `true` if the commit should be included in the changelog, `false` otherwise. Executed after parsing but before categorization. |
 
 The `CommitEntry` object passed to `commitFilter` has the following structure:
 ```typescript

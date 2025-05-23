@@ -110,7 +110,8 @@ describe('Changelog Generation - Tag Filtering', () => {
       repoPath: tmpDir,
       githubRepoUrl: GITHUB_REPO_URL,
     });
-    expect(changelog).toMatch(new RegExp(`^# \\[0\\.5\\.0-experimental\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.v0\\.5\\.0-experimental\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Expect H2 (##) because v0.5.0-experimental is a pre-release
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.5\\.0-experimental\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.v0\\.5\\.0-experimental\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     expect(changelog).toContain('### Features\n\n');
     expect(changelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}\n`));
     
@@ -127,7 +128,8 @@ describe('Changelog Generation - Tag Filtering', () => {
       githubRepoUrl: GITHUB_REPO_URL,
     });
 
-    expect(changelog).toMatch(new RegExp(`^# \\[0\\.4\\.0-release\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-release\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+    // Expect H2 (##) because v0.4.0-release is a pre-release (due to "-release" suffix matching SemVer pre-release part)
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.4\\.0-release\\]\\(${GITHUB_REPO_URL}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-release\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     expect(changelog).toContain('### Features\n\n');
     expect(changelog).toMatch(new RegExp(`\\* Important feature JDTA-1 ${COMMIT_LINK_REGEX}\n`));
     expect(changelog).toMatch(new RegExp(`\\* Add new dashboard PROJ-132 ${COMMIT_LINK_REGEX}\n`));
@@ -151,7 +153,7 @@ describe('Changelog Generation - Tag Filtering', () => {
     });
     expect(unreleasedChangelog).toMatch(new RegExp(`^## \\[Unreleased\\]\\(${GITHUB_REPO_URL}/compare/v0\\.4\\.0-release\\.\\.\\.HEAD\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
     expect(unreleasedChangelog).toContain('### Features\n\n');
-    expect(unreleasedChangelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}\n`));
+    expect(unreleasedChangelog).toMatch(new RegExp(`\\* Another feature CF-003 ${COMMIT_LINK_REGEX}\n`)); // This commit is from v0.5.0-experimental which is filtered out by customTagFilter for range calculation, but included if unreleased is from v0.4.0-release
     expect(unreleasedChangelog).toMatch(new RegExp(`\\* Unreleased for custom filter CUST-UNRL-001 ${COMMIT_LINK_REGEX}\n`));
     expect(unreleasedChangelog.endsWith('\n\n')).toBe(true);
     

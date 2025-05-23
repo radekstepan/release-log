@@ -61,7 +61,6 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
   const rawCommits = output.split('==END==\n').filter(Boolean);
   const commits = rawCommits.reverse(); 
 
-  const seenJiraTickets = new Set<string>();
   const categories: ParsedCommits = {};
   const effectiveCommitTypes = config.commitTypes;
 
@@ -96,14 +95,14 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
           breakingNotes: [] 
         };
 
-        // Populate breakingNotes (same logic as before)
+        // Populate breakingNotes
         const breakingChangeKeywords = ["BREAKING CHANGE:", "BREAKING-CHANGE:"];
         let currentBody = body;
         // eslint-disable-next-line no-constant-condition
         while(true) {
             let bestKeywordIndexInBody = -1;
             let matchedKeywordLength = 0;
-            let keywordFound: string | null = null;
+            // let keywordFound: string | null = null; // Not strictly needed to be stored
             for (const keyword of breakingChangeKeywords) {
                 const keywordIndex = currentBody.toLowerCase().indexOf(keyword.toLowerCase());
                 if (keywordIndex !== -1) {
@@ -113,12 +112,12 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
                         if (bestKeywordIndexInBody === -1 || keywordIndex < bestKeywordIndexInBody) {
                             bestKeywordIndexInBody = keywordIndex;
                             matchedKeywordLength = keyword.length;
-                            keywordFound = keyword;
+                            // keywordFound = keyword; // Not strictly needed
                         }
                     }
                 }
             }
-            if (keywordFound) {
+            if (bestKeywordIndexInBody !== -1) { // Check against -1
                 let noteText = currentBody.substring(bestKeywordIndexInBody + matchedKeywordLength).trim();
                 if (noteText) entry.breakingNotes.push(noteText);
                 currentBody = currentBody.substring(bestKeywordIndexInBody + matchedKeywordLength + noteText.length);
@@ -127,22 +126,12 @@ export function parseCommits(range: string | null, config: ResolvedChangelogConf
             }
         }
 
-        // <<<< FIX: Apply commitFilter BEFORE JIRA deduplication logic >>>>
+        // Apply commitFilter
         if (!config.commitFilter(entry)) {
           continue; // Skip this commit if the filter returns false
         }
 
-        // JIRA Deduplication for *kept* commits
-        if (entry.jiraTicket && seenJiraTickets.has(entry.jiraTicket)) {
-          // This JIRA ticket has already been included from a previous (kept) commit
-          continue; 
-        }
-        // <<<< END FIX >>>>
-        
-        if (entry.jiraTicket) {
-          // Only add to seenJiraTickets if the commit was *kept* AND has a JIRA ticket
-          seenJiraTickets.add(entry.jiraTicket);
-        }
+        // Removed JIRA Deduplication logic
         
         if (!categories[categoryTitle]) {
           categories[categoryTitle] = [];

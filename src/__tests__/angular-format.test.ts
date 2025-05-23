@@ -119,10 +119,10 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
 
     createCommit('feat: Important feature JDTA-1', 'first commit JDTA-1', 'jira_a1.js'); //16
     createCommit('chore: Setup for JDTA-1', 'chore commit for JDTA-1', 'jira_a2.js'); // 17
-    createCommit('fix: Bugfix for JDTA-1', 'second commit JDTA-1, should appear', 'jira_a3.js'); // 18
+    createCommit('fix: Bugfix for JDTA-1', 'fix commit for JDTA-1', 'jira_a3.js'); // 18
 
     createCommit('fix: Fix critical security issue PROJ-131', 'security.js'); //19
-    createCommit('fix: Address security vulnerability PROJ-131 (follow-up)', 'Applied security fix, should be ignored by dedupe', 'other.js'); //20
+    createCommit('fix: Address security vulnerability PROJ-131 (follow-up)', 'Applied security fix', 'other.js'); //20
     createCommit('feat: Add new dashboard PROJ-132', 'New dashboard', 'dashboard.js'); //21
     
     execInTmpDir('git tag v0.4.0-beta'); 
@@ -178,17 +178,13 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     });
     expect(changelog).toMatch(new RegExp(`^## \\[0\\.3\\.1\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.0\\.\\.\\.v0\\.3\\.1\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
 
-    // Actual Received order for BREAKING CHANGES:
-    // 1. api: ... BC-BANG-001 (#80) (from commit 11)
-    // 2. module: ... BC-BOTH-001 (#81) (from commit 15)
-    // 3. ui: ... BC-NOTE-001 (from commit 12)
     const breakingSectionRegex = new RegExp(
       escapeRegExp(`### BREAKING CHANGES\n\n`) +
       escapeRegExp(`* **api:** Introduce new API version, old one deprecated BC-BANG-001 (#80) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) +
-      escapeRegExp(`* **module:** Complete rewrite of module X BC-BOTH-001 (#81) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) + // Moved module up
+      escapeRegExp(`* **module:** Complete rewrite of module X BC-BOTH-001 (#81) `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) + 
       escapeRegExp(`  * Module X API is entirely new.\n`) +
       escapeRegExp(`  * See migration guide at https://example.com/migrate\n`) +
-      escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) + // Moved ui down
+      escapeRegExp(`* **ui:** Adjust layout due to API changes BC-NOTE-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`) + 
       escapeRegExp(`  * The user profile layout has changed significantly. Users need to update their settings.\n`) +
       escapeRegExp(`  * Another line for the note.\n`) +
       escapeRegExp(`\n\n\n`)
@@ -232,7 +228,6 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     const revertsSectionRegex = new RegExp(
       escapeRegExp(`### Reverts\n\n`) +
       escapeRegExp(`* Revert "feat: Add password reset feature PROJ-127" RVT-001 `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`)
-      // This is the last section
     );
     expect(changelog).toMatch(revertsSectionRegex);
 
@@ -259,11 +254,42 @@ describe('Changelog Generation - Angular Preset Formatting and Breaking Changes'
     const choresSectionRegex = new RegExp(
       escapeRegExp(`### Chores\n\n`) +
       escapeRegExp(`* Initial commit `) + COMMIT_LINK_REGEX_ASSERT_EXISTS + escapeRegExp(`\n`)
-      // Last section
     );
     expect(changelog).toMatch(choresSectionRegex);
 
     expect(changelog).not.toContain('Fix login redirect PROJ-125');
+    expect(changelog.endsWith('\n\n')).toBe(true);
+  });
+
+  test('generates changelog for v0.4.0-beta and ensures multiple JIRA commits appear', async () => {
+    const changelog = await generateChangelog({
+      repoPath: tmpDir,
+      tag: 'v0.4.0-beta', // This implies range v0.3.1...v0.4.0-beta
+      githubRepoUrl: GITHUB_REPO_URL,
+    });
+
+    expect(changelog).toMatch(new RegExp(`^## \\[0\\.4\\.0-beta\\]\\(${escapeRegExp(GITHUB_REPO_URL)}/compare/v0\\.3\\.1\\.\\.\\.v0\\.4\\.0-beta\\) \\(${DATE_REGEX_ESCAPED}\\)\n\n\n`));
+
+    // Features
+    expect(changelog).toContain('### Features\n\n');
+    expect(changelog).toMatch(new RegExp(escapeRegExp('* Important feature JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
+    expect(changelog).toMatch(new RegExp(escapeRegExp('* Add new dashboard PROJ-132 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
+    
+    // Bug Fixes
+    expect(changelog).toContain('### Bug Fixes\n\n');
+    expect(changelog).toMatch(new RegExp(escapeRegExp('* Bugfix for JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
+    expect(changelog).toMatch(new RegExp(escapeRegExp('* Fix critical security issue PROJ-131 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
+    expect(changelog).toMatch(new RegExp(escapeRegExp('* Address security vulnerability PROJ-131 (follow-up) ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
+
+    // Chores
+    expect(changelog).toContain('### Chores\n\n');
+    expect(changelog).toMatch(new RegExp(escapeRegExp('* Setup for JDTA-1 ') + COMMIT_LINK_REGEX_ASSERT_EXISTS));
+    
+    // Ensure order within sections (example for Bug Fixes)
+    const bugFixesSection = changelog.substring(changelog.indexOf('### Bug Fixes'));
+    expect(bugFixesSection.indexOf('Bugfix for JDTA-1')).toBeLessThan(bugFixesSection.indexOf('Fix critical security issue PROJ-131'));
+    expect(bugFixesSection.indexOf('Fix critical security issue PROJ-131')).toBeLessThan(bugFixesSection.indexOf('Address security vulnerability PROJ-131 (follow-up)'));
+
     expect(changelog.endsWith('\n\n')).toBe(true);
   });
 });

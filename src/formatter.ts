@@ -31,26 +31,38 @@ function getHeaderLevel(
   isUnreleased: boolean
 ): '#' | '##' {
   if (isUnreleased) return '##';
-  if (!currentTag) return '##'; // Generic "Changelog" title
+  if (!currentTag) return '##'; // Generic "Changelog" title for no tags
 
   const currentSemVer = parseSemVer(currentTag);
 
-  if (!previousTag) { // This is the first release
+  if (!currentSemVer) { // If current tag is not a valid SemVer (e.g., "my-custom-tag")
+      return '##'; // Default to H2 for non-semver tags
+  }
+
+  // If the current tag is a pre-release, always use H2
+  if (currentSemVer.preRelease) {
+    return '##';
+  }
+
+  // If it's the first release (no previous tag to compare against), use H1
+  if (!previousTag) { 
     return '#';
   }
 
   const previousSemVer = parseSemVer(previousTag);
-
-  if (!currentSemVer || !previousSemVer) { // Non-semver tags involved in comparison
-    return '##'; // Default to patch level for safety
+  if (!previousSemVer) { // If previous tag is not a valid SemVer
+    // Cannot reliably determine major/minor/patch, default to H2
+    return '##'; 
   }
 
+  // Standard major or minor release (non-prerelease) gets H1
   if (currentSemVer.major > previousSemVer.major || 
       (currentSemVer.major === previousSemVer.major && currentSemVer.minor > previousSemVer.minor)) {
-    return '#'; // Major or Minor release
+    return '#';
   }
   
-  return '##'; // Patch release or pre-release increment
+  // Patch release (non-prerelease) or other cases default to H2
+  return '##';
 }
 
 
@@ -65,8 +77,8 @@ export function formatChangelog(
   const baseUrl = config.githubRepoUrl ? (config.githubRepoUrl.endsWith('/') ? config.githubRepoUrl : config.githubRepoUrl + '/') : null;
 
   let displayVersion = currentTagForDisplay ? currentTagForDisplay.replace(/^v/, '') : null;
-  const prevDisplayVersion = previousTagForCompare ? previousTagForCompare.replace(/^v/, '') : null;
-  const originalCurrentTag = currentTagForDisplay; // keep original for tree/compare links if needed
+  // const prevDisplayVersion = previousTagForCompare ? previousTagForCompare.replace(/^v/, '') : null; // Not directly used in header text
+  const originalCurrentTag = currentTagForDisplay; 
   const originalPreviousTag = previousTagForCompare;
 
 
@@ -75,19 +87,19 @@ export function formatChangelog(
 
   if (config.unreleased) {
     headerDisplayPart = 'Unreleased';
-    if (baseUrl && originalPreviousTag) { // Use original tags for links
+    if (baseUrl && originalPreviousTag) { 
       headerDisplayPart = `[Unreleased](${baseUrl}compare/${originalPreviousTag}...HEAD)`;
     }
   } else if (displayVersion) { // Tagged release
     headerDisplayPart = displayVersion; 
     if (baseUrl) {
-      if (originalPreviousTag) { // Use original tags for links
+      if (originalPreviousTag) { 
         headerDisplayPart = `[${displayVersion}](${baseUrl}compare/${originalPreviousTag}...${originalCurrentTag})`;
       } else { 
         headerDisplayPart = `[${displayVersion}](${baseUrl}tree/${originalCurrentTag})`;
       }
     }
-  } else { // All commits, no tags
+  } else { // All commits, no tags (effectively "Unreleased" from the beginning or generic changelog)
     headerDisplayPart = 'Changelog';
   }
 
@@ -143,17 +155,12 @@ export function formatChangelog(
       }
     });
 
-  // Remove potentially excessive trailing newlines from the very last section
-  // If the entire changelog (after header) was empty, it would be just `\n\n\n`.
-  // If it had content, it would end with `\n\n\n`. We want to ensure it ends with at most two newlines.
-  // A simple way is to trim and add back two newlines if there was content.
   const headerEndIndex = changelog.indexOf('\n\n\n') + 3;
   const bodyContent = changelog.substring(headerEndIndex).trim();
   
   if (bodyContent.length > 0) {
     return changelog.substring(0, headerEndIndex) + bodyContent + '\n\n';
   } else {
-    // No body content, just the header. Ensure it ends with one newline.
     return `${headerLevel} ${headerDisplayPart} (${date})\n`;
   }
 }
