@@ -1,6 +1,5 @@
 node_modules/
 repomix-output.xml
-dist/
 # Log files
 npm-debug.log*
 yarn-debug.log*
