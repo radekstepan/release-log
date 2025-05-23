@@ -1,4 +1,4 @@
-import { git } from './git_utils';
+import { git } from './git-utils';
 import { ResolvedChangelogConfig } from './config';
 
 export interface CommitEntry {

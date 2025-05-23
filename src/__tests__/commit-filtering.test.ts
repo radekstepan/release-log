@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
-import { generateChangelog, CommitEntry } from '../../index';
+import { generateChangelog, CommitEntry } from '../index';
 
 describe('Changelog Generation - Commit Filtering and JIRA Interaction', () => {
   let tmpDir: string;

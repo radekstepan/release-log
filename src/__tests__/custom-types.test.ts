@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
-import { generateChangelog, ChangelogConfig } from '../../index';
+import { generateChangelog, ChangelogConfig } from '../index';
 
 describe('Changelog Generation - Custom Commit Types', () => {
   let tmpDir: string;

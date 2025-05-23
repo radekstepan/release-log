@@ -27,7 +27,7 @@ It also provides utility functions for working with git tags.
 *   **File Operations:**
     *   Optionally save the generated changelog to a file.
     *   Prepends new content to the existing changelog file.
-*   **Tag Utilities:** Includes functions like `getPreviousMajorVersionTags` to retrieve lists of tags based on semantic versioning.
+*   **Tag Utilities:** Includes functions like `getPreviousSemverTags` to retrieve lists of tags based on semantic versioning (major or minor).
 *   **Robust Handling:**
     *   Flexible tag filtering using a `tagFilter` function (defaults to ignoring tags ending with `-schema`).
     *   Flexible commit filtering using a `commitFilter` function (defaults to including all parsed conventional commits).
@@ -134,43 +134,52 @@ updateMyChangelog();
 
 ## Tag Utilities
 
-### `getPreviousMajorVersionTags`
+### `getPreviousSemverTags`
 
-This utility function helps you find tags corresponding to previous major releases.
+This utility function helps you find tags corresponding to previous major or minor releases based on semantic versioning.
 
 ```typescript
-import { getPreviousMajorVersionTags, PreviousMajorVersionTagsOptions } from 'release-log';
+import { getPreviousSemverTags, PreviousSemverTagsOptions } from 'release-log';
 
 async function findPreviousReleases() {
   try {
-    const options: PreviousMajorVersionTagsOptions = {
-      repoPath: process.cwd(), // Optional, defaults to current working directory
-      count: 3,                // Number of previous major versions to find
+    // Example 1: Find 2 previous major release tags
+    const majorOptions: PreviousSemverTagsOptions = {
+      repoPath: process.cwd(), // Optional
+      count: { major: 2 },     // Find 2 previous major versions
       // startingTag: 'v5.2.0', // Optional, tag to start searching backwards from. Defaults to latest semver tag.
-      // tagFilter: (tag: string) => !tag.includes('-beta'), // Optional, filters tags before processing
+      // tagFilter: (tag: string) => !tag.includes('-beta'), // Optional
     };
-
-    const majorTags = await getPreviousMajorVersionTags(options);
-    // Example: if current latest is v5.x.y, and you ask for count: 3,
-    // majorTags might be ['v4.8.0', 'v3.10.2', 'v2.5.1'] (latest tags from major 4, 3, and 2)
-    // It will return fewer if not enough major versions exist.
+    const majorTags = await getPreviousSemverTags(majorOptions);
+    // If current latest is v5.x.y, majorTags might be ['v4.8.0', 'v3.10.2'] (latest tags from major 4 and 3)
     console.log('Previous major release tags:', majorTags);
+
+    // Example 2: Find 1 previous minor release tag from v2.3.0
+    const minorOptions: PreviousSemverTagsOptions = {
+      repoPath: process.cwd(),
+      count: { minor: 1 },     // Find 1 previous minor version
+      startingTag: 'v2.3.0',   // Anchor search to v2.3.0
+    };
+    const minorTags = await getPreviousSemverTags(minorOptions);
+    // If tags like v2.3.0, v2.2.5, v2.1.0 exist, minorTags would be ['v2.2.5']
+    console.log('Previous minor release tags (from v2.3.0):', minorTags);
+
   } catch (error) {
-    console.error('Failed to get previous major tags:', error);
+    console.error('Failed to get previous semver tags:', error);
   }
 }
 
 findPreviousReleases();
 ```
 
-#### `PreviousMajorVersionTagsOptions`
+#### `PreviousSemverTagsOptions`
 
-| Option        | Type                       | Default                                      | Description                                                                                                                                    |
-| ------------- | -------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `repoPath`    | `string`                   | `process.cwd()`                              | Path to the git repository.                                                                                                                    |
-| `count`       | `number`                   | **Required**                                 | The number of previous major versions to find.                                                                                                 |
-| `startingTag` | `string`                   | Latest semantic version tag                  | An optional tag string to start searching backwards from. If the `startingTag` itself is not a semantic version, the search anchors from the nearest older or equivalent semantic version tag. |
-| `tagFilter`   | `(tag: string) => boolean` | `(tag) => tag && !tag.endsWith('-schema')` | A function that receives a tag string and returns `true` if the tag should be considered, `false` otherwise. Applied before any other logic. |
+| Option        | Type                                               | Default                                      | Description                                                                                                                                    |
+| ------------- | -------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repoPath`    | `string`                                           | `process.cwd()`                              | Path to the git repository.                                                                                                                    |
+| `count`       | `{ major: number } \| { minor: number }`           | **Required**                                 | Specifies the number of previous major versions OR previous minor versions to find. <br> - `{ major: N }`: Find N previous major versions. <br> - `{ minor: N }`: Find N previous minor versions (within the same major as the `startingTag` or latest semver tag). |
+| `startingTag` | `string`                                           | Latest semantic version tag                  | An optional tag string to start searching backwards from. If the `startingTag` itself is not a semantic version, the search anchors from the nearest older or equivalent semantic version tag. |
+| `tagFilter`   | `(tag: string) => boolean`                         | `(tag) => tag && !tag.endsWith('-schema')` | A function that receives a tag string and returns `true` if the tag should be considered, `false` otherwise. Applied before any other logic. |
 
 
 ## Configuration Options (for `generateChangelog`)

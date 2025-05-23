@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { resolveConfig, ChangelogUserConfig, ResolvedChangelogConfig } from './config';
-import { getCommitRangeDetails } from './git_utils';
-import { parseCommits, ParsedCommits } from './commit_parser';
+import { getCommitRangeDetails } from './git-utils';
+import { parseCommits, ParsedCommits } from './commit-parser';
 import { formatChangelog } from './formatter';
 
 export async function generateChangelog(userConfig: ChangelogUserConfig = {}): Promise<string> {

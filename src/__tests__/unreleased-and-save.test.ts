@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';
-import { generateChangelog } from '../../index';
+import { generateChangelog } from '../index';
 
 describe('Changelog Generation - Unreleased and Save Functionality', () => {
   let tmpDir: string;

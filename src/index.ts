@@ -1,8 +1,8 @@
 import { generateChangelog as internalGenerateChangelog } from './changelog-generator';
 // Import ChangelogUserConfig directly for re-export
-import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange, PreviousMajorVersionTagsOptions } from './config';
-import { CommitEntry } from './commit_parser';
-import { getPreviousMajorVersionTags as internalGetPreviousMajorTags } from './git_utils';
+import { ChangelogUserConfig as Config, CommitFilter, TagFilter, ChangelogUserConfig, TagRange, PreviousSemverTagsOptions } from './config';
+import { CommitEntry } from './commit-parser';
+import { getPreviousSemverTags as internalGetPreviousSemverTags } from './git-utils';
 
 export interface ChangelogConfig extends Config {}
 
@@ -19,15 +19,15 @@ export async function generateChangelog(options: ChangelogConfig = {}): Promise<
 }
 
 /**
- * Retrieves a list of tags representing previous major releases from a git repository.
+ * Retrieves a list of tags representing previous semantic versions (major or minor) from a git repository.
  *
  * @async
- * @param {PreviousMajorVersionTagsOptions} options - Configuration options.
- * @returns {Promise<string[]>} A promise that resolves with an array of tag strings, sorted from newest to oldest among the selected previous major versions.
+ * @param {PreviousSemverTagsOptions} options - Configuration options.
+ * @returns {Promise<string[]>} A promise that resolves with an array of tag strings, sorted from newest to oldest among the selected previous versions.
  * @throws {Error} Throws an error if git commands fail or other issues occur.
  */
-export async function getPreviousMajorVersionTags(options: PreviousMajorVersionTagsOptions): Promise<string[]> {
-  return internalGetPreviousMajorTags(options);
+export async function getPreviousSemverTags(options: PreviousSemverTagsOptions): Promise<string[]> {
+  return internalGetPreviousSemverTags(options);
 }
 
 
@@ -38,5 +38,5 @@ export {
   type TagFilter, 
   type CommitEntry, 
   type TagRange,
-  type PreviousMajorVersionTagsOptions
+  type PreviousSemverTagsOptions
 };

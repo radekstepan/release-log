@@ -1,5 +1,5 @@
 import { ResolvedChangelogConfig } from './config';
-import { ParsedCommits, CommitEntry } from './commit_parser';
+import { ParsedCommits, CommitEntry } from './commit-parser';
 
 // Order for sections based on conventional-changelog-angular preset
 const ANGULAR_PRESET_CATEGORY_TITLES_ORDER: string[] = [

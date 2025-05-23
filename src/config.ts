@@ -1,5 +1,5 @@
 import path from 'path';
-import { CommitEntry } from './commit_parser';
+import { CommitEntry } from './commit-parser';
 
 export type CommitTypeMapping = Record<string, string>;
 export type TagFilter = (tag: string) => boolean;
@@ -34,10 +34,10 @@ export interface ResolvedChangelogConfig {
   commitTypes: CommitTypeMapping;
 }
 
-// Options for the new getPreviousMajorVersionTags utility
-export interface PreviousMajorVersionTagsOptions {
+// Options for the new getPreviousSemverTags utility
+export interface PreviousSemverTagsOptions {
   startingTag?: string;
-  count: number;
+  count: { major: number } | { minor: number };
   repoPath?: string;
   tagFilter?: TagFilter;
 }
@@ -59,22 +59,17 @@ export const DEFAULT_COMMIT_TYPES: CommitTypeMapping = {
 export const defaultTagFilter: TagFilter = (tag: string): boolean => Boolean(tag && !tag.endsWith('-schema'));
 const defaultCommitFilter: CommitFilter = (_commit: CommitEntry): boolean => true;
 
-export function resolveConfig(userConfig: ChangelogUserConfig | PreviousMajorVersionTagsOptions = {}): ResolvedChangelogConfig {
-  let githubRepoUrlFromUser: string | null | undefined = null;
-  if ('githubRepoUrl' in userConfig) {
-    githubRepoUrlFromUser = (userConfig as ChangelogUserConfig).githubRepoUrl;
-  }
-
+export function resolveConfig(userConfig: ChangelogUserConfig = {}): ResolvedChangelogConfig {
   const resolved: ResolvedChangelogConfig = {
     repoPath: userConfig.repoPath ?? process.cwd(),
-    changelogFile: (userConfig as ChangelogUserConfig).changelogFile ?? 'CHANGELOG.md',
-    githubRepoUrl: githubRepoUrlFromUser === undefined ? null : githubRepoUrlFromUser, // Correctly handle undefined from user to null
-    unreleased: (userConfig as ChangelogUserConfig).unreleased ?? false,
-    save: (userConfig as ChangelogUserConfig).save ?? false,
-    tag: (userConfig as ChangelogUserConfig).tag === undefined ? undefined : (userConfig as ChangelogUserConfig).tag,
+    changelogFile: userConfig.changelogFile ?? 'CHANGELOG.md',
+    githubRepoUrl: userConfig.githubRepoUrl === undefined ? null : userConfig.githubRepoUrl,
+    unreleased: userConfig.unreleased ?? false,
+    save: userConfig.save ?? false,
+    tag: userConfig.tag === undefined ? undefined : userConfig.tag,
     tagFilter: defaultTagFilter,
     commitFilter: defaultCommitFilter,
-    commitTypes: { ...DEFAULT_COMMIT_TYPES, ...((userConfig as ChangelogUserConfig).commitTypes || {}) },
+    commitTypes: { ...DEFAULT_COMMIT_TYPES, ...(userConfig.commitTypes || {}) },
   };
 
   if (typeof userConfig.tagFilter === 'function') {
@@ -83,9 +78,9 @@ export function resolveConfig(userConfig: ChangelogUserConfig | PreviousMajorVer
     console.warn("Warning: `tagFilter` provided is not a function. Using default tag filter.");
   }
   
-  if ('commitFilter' in userConfig && typeof (userConfig as ChangelogUserConfig).commitFilter === 'function') {
-    resolved.commitFilter = (userConfig as ChangelogUserConfig).commitFilter!;
-  } else if ('commitFilter' in userConfig && (userConfig as ChangelogUserConfig).commitFilter !== undefined) {
+  if (typeof userConfig.commitFilter === 'function') {
+    resolved.commitFilter = userConfig.commitFilter;
+  } else if (userConfig.commitFilter !== undefined) {
     console.warn("Warning: `commitFilter` provided is not a function. Using default commit filter.");
   }
 
